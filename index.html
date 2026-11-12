@@ -1292,8 +1292,11 @@
     }
 
     // BUYURTMANI TELEGRAM BOTGA YUBORISH
-    function submitOrder() {
+    async function submitOrder() {
       haptic('heavy');
+
+      const submitBtn = document.querySelector('.btn-submit-order');
+      const originalText = submitBtn ? submitBtn.innerHTML : '';
 
       const items = [];
       let subtotal = 0;
@@ -1336,14 +1339,68 @@
         items_total: subtotal,
         promo_code: appliedPromo ? appliedPromo.code : null,
         discount_amount: discountAmount,
-        final_total: subtotal - discountAmount
+        final_total: subtotal - discountAmount,
+        user_id: tg?.initDataUnsafe?.user?.id,
+        user: tg?.initDataUnsafe?.user
       };
 
-      if (tg) {
-        // Telegram Botga ma'lumotni uzatish
-        tg.sendData(JSON.stringify(orderPayload));
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<span>Buyurtma yuborilmoqda...</span> ⏳`;
+      }
+
+      // 1. Backend REST API orqali yuborish (Barcha usulda: Menu Button, Inline va Keyboardda 100% ishlaydi)
+      let apiSuccess = false;
+      try {
+        const response = await fetch('/api/order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(orderPayload)
+        });
+
+        const resData = await response.json();
+        if (resData.ok) {
+          apiSuccess = true;
+        } else if (resData.error === 'closed') {
+          alert("⚠️ Hozir bizning ish vaqtimiz emas (09:00 - 23:00)!");
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn("Backend API fetch xatosi:", err);
+      }
+
+      // 2. Fallback: Telegram sendData (agar KeyboardButton orqali ochilgan bo'lsa)
+      if (!apiSuccess && tg) {
+        try {
+          tg.sendData(JSON.stringify(orderPayload));
+          apiSuccess = true;
+        } catch (e) {
+          console.warn("Telegram sendData xatosi:", e);
+        }
+      }
+
+      // Agar muvaffaqiyatli bo'lsa Web App ni yopish
+      if (tg && apiSuccess) {
+        tg.close();
+      } else if (!tg) {
+        alert("Buyurtma qabul qilindi!\nJami: " + formatPrice(orderPayload.final_total));
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
       } else {
-        alert("Web App buyurtma yuborildi:\n" + JSON.stringify(orderPayload, null, 2));
+        // Agar ikkalasi ham xato bo'lsa
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
+        alert("Xatolik yuz berdi. Iltimos qaytadan urinib ko'ring yoki botga qayting.");
       }
     }
 

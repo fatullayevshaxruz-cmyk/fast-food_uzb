@@ -19,10 +19,18 @@ from database import (
     save_or_update_user,
     get_user,
     get_cart_items,
+    set_cart_items,
     add_to_cart,
     clear_cart
 )
-from handlers.order import register_order_handlers
+from handlers.order import (
+    register_order_handlers,
+    OrderStates,
+    is_working_hours,
+    get_user_lang
+)
+from keyboards.order_kb import get_cancel_reply_kb, get_location_reply_kb
+from config import WORKING_HOURS_START, WORKING_HOURS_END
 from utils.i18n import get_text
 
 # Logging
@@ -41,9 +49,9 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 
-# ---------------- WEB APP SERVER (STATIC FILES) ----------------
+# ---------------- WEB APP SERVER (STATIC FILES & API) ----------------
 async def start_web_server():
-    """Web App statik sahifalarini beruvchi aiohttp veb-server."""
+    """Web App statik sahifalari va buyurtma API ni beruvchi aiohttp veb-server."""
     app = web.Application()
 
     async def index_handler(request):
@@ -54,11 +62,113 @@ async def start_web_server():
         map_file = STATIC_DIR / "map.html"
         return web.FileResponse(map_file)
 
+    async def api_order_handler(request):
+        """Web App orqali yuborilgan buyurtmani qabul qilish va FSM ni faollashtirish."""
+        try:
+            data = await request.json()
+        except Exception as e:
+            logger.error(f"Invalid JSON in /api/order: {e}")
+            return web.json_response({"ok": False, "error": "Invalid JSON"}, headers={"Access-Control-Allow-Origin": "*"})
+
+        user_id = data.get("user_id")
+        if not user_id:
+            user_info = data.get("user") or {}
+            user_id = user_info.get("id")
+
+        if not user_id:
+            return web.json_response({"ok": False, "error": "User ID topilmadi"}, headers={"Access-Control-Allow-Origin": "*"})
+
+        user_id = int(user_id)
+        user_info = data.get("user") or {}
+        first_name = user_info.get("first_name", "Mijoz")
+        lang = await get_user_lang(user_id)
+
+        # Ish vaqti tekshiruvi (UTC+5)
+        if not is_working_hours():
+            alert_msg = get_text(
+                "closed_alert",
+                lang,
+                start=WORKING_HOURS_START,
+                end=WORKING_HOURS_END
+            )
+            try:
+                await bot.send_message(user_id, alert_msg)
+            except Exception:
+                pass
+            return web.json_response({"ok": False, "error": "closed"}, headers={"Access-Control-Allow-Origin": "*"})
+
+        items = data.get("items", [])
+        if not items:
+            return web.json_response({"ok": False, "error": "Savatcha bo'sh"}, headers={"Access-Control-Allow-Origin": "*"})
+
+        # Savatni bazaga to'liq yozamiz
+        await set_cart_items(user_id, items)
+
+        items_total = data.get("items_total", 0)
+        promo_code = data.get("promo_code")
+        discount_amount = data.get("discount_amount", 0)
+        delivery_type = data.get("delivery_type", "delivery")
+
+        # Foydalanuvchining FSM kontekstini olamiz
+        state = dp.current_state(chat=user_id, user=user_id)
+        await state.update_data(
+            user_id=user_id,
+            full_name=first_name,
+            cart_items=items,
+            items_total=items_total,
+            lang=lang,
+            promo_code=promo_code,
+            discount_amount=discount_amount,
+            delivery_type=delivery_type,
+            delivery_fee=0
+        )
+
+        summary_text = (
+            f"🍔 <b>Web App orqali buyurtmangiz qabul qilindi!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📦 Mahsulotlar: <b>{items_total:,} so'm</b> ({len(items)} xil)\n"
+        )
+        if discount_amount > 0:
+            summary_text += f"🏷 Chegirma ({promo_code}): <b>-{discount_amount:,} so'm</b>\n"
+        summary_text += f"━━━━━━━━━━━━━━━━━━━━\n"
+
+        try:
+            if delivery_type == "eat_in":
+                summary_text += f"📌 Turi: <b>🍽 Shu yerda (Zalda)</b>\n\n"
+                await state.update_data(delivery_fee=0)
+                await state.set_state(OrderStates.waiting_for_table_number)
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=summary_text + get_text("ask_table_number", lang),
+                    reply_markup=get_cancel_reply_kb(lang)
+                )
+            else:
+                summary_text += f"📌 Turi: <b>🛵 Yetkazib berish</b>\n\n"
+                await state.set_state(OrderStates.waiting_for_location)
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=summary_text + get_text("ask_location", lang),
+                    reply_markup=get_location_reply_kb(lang)
+                )
+        except Exception as e:
+            logger.error(f"Error sending bot message for user {user_id}: {e}")
+
+        return web.json_response({"ok": True}, headers={"Access-Control-Allow-Origin": "*"})
+
+    async def options_handler(request):
+        return web.Response(headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type"
+        })
+
     app.router.add_get("/", index_handler)
     app.router.add_get("/index.html", index_handler)
     app.router.add_get("/menu", index_handler)
     app.router.add_get("/app", index_handler)
     app.router.add_get("/map", map_handler)
+    app.router.add_post("/api/order", api_order_handler)
+    app.router.add_options("/api/order", options_handler)
     app.router.add_static("/static", path=str(STATIC_DIR), name="static")
 
     runner = web.AppRunner(app)

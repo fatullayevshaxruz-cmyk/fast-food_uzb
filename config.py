@@ -27,7 +27,7 @@ RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "41.311081"))
 RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "69.240562"))
 
 # Web App / Server sozlamalari
-WEB_APP_URL = os.getenv("WEB_APP_URL", os.getenv("RENDER_URL", "https://fast-food-1-p4bx.onrender.com"))
+WEB_APP_URL = os.getenv("WEB_APP_URL", os.getenv("RENDER_URL", "https://fast-food-uzb.onrender.com"))
 PORT = int(os.getenv("PORT", "8080"))
 
 # Database

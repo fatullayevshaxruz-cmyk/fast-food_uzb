@@ -47,3 +47,4 @@ python main.py
 ```
 
 Web App statik serveri `http://localhost:8080/` portida avtomatik ishga tushadi.
+

@@ -55,6 +55,9 @@ async def start_web_server():
         return web.FileResponse(map_file)
 
     app.router.add_get("/", index_handler)
+    app.router.add_get("/index.html", index_handler)
+    app.router.add_get("/menu", index_handler)
+    app.router.add_get("/app", index_handler)
     app.router.add_get("/map", map_handler)
     app.router.add_static("/static", path=str(STATIC_DIR), name="static")
 

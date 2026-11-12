@@ -6,7 +6,14 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "9054732573:AAEbllPQYRCOcDOxeHGTyQqVHWI_wqz3FAY")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "1233117662"))
+raw_admin_id = os.getenv("ADMIN_ID", "1233117662")
+ADMIN_IDS = [int(i.strip()) for i in raw_admin_id.split(",") if i.strip().isdigit()]
+ADMIN_ID = ADMIN_IDS[0] if ADMIN_IDS else 1233117662
+
+
+def is_admin(user_id: int) -> bool:
+    """Foydalanuvchi admin ekanligini tekshiradi."""
+    return user_id in ADMIN_IDS
 ADMIN_CHANNEL_ID = int(os.getenv("ADMIN_CHANNEL_ID", "-1004376258203"))
 BRANCH_1_CHANNEL_ID = int(os.getenv("BRANCH_1_CHANNEL_ID", "-1004376258203"))
 DELIVERY_CHANNEL_ID = int(os.getenv("DELIVERY_CHANNEL_ID", "-1003957592099"))

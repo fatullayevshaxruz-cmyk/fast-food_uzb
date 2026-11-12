@@ -275,3 +275,4 @@ def get_feedback_rating_kb(order_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton("⭐ 5", callback_data=f"rate:{order_id}:5")
     )
     return kb
+

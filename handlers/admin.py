@@ -1154,3 +1154,4 @@ def register_admin_handlers(dp: Dispatcher):
     # 9. Mijoz baholash (Feedback)
     dp.register_callback_query_handler(callback_customer_rate, lambda c: c.data.startswith("rate:"), state="*")
     dp.register_message_handler(process_feedback_comment, state=CustomerFeedback.waiting_for_comment)
+

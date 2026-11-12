@@ -12,7 +12,7 @@ from typing import Optional
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import (
     WORKING_HOURS_START,
@@ -29,7 +29,8 @@ from database import (
     check_promo_code,
     mark_promo_used,
     get_active_branches,
-    create_order
+    create_order,
+    add_feedback
 )
 from utils.geo import (
     is_within_uzbekistan,
@@ -39,6 +40,12 @@ from utils.geo import (
 )
 from utils.i18n import get_text
 from utils.notifications import notify_admins_new_order
+from utils.order_cancel import (
+    start_order_cancel_window,
+    handle_user_cancel_order,
+    get_cancel_countdown_kb
+)
+from security.payment_guard import generate_click_link, generate_payme_link
 from keyboards.order_kb import (
     get_delivery_type_kb,
     get_location_reply_kb,
@@ -665,18 +672,54 @@ async def process_payment_method(call: types.CallbackQuery, state: FSMContext):
     )
 
     await call.message.delete()
-    await call.message.answer(receipt, parse_mode="HTML")
 
-    # 5. Asinxron ravishda oshxona/filial va kuryer kanaliga xabar yuborish
-    try:
-        await notify_admins_new_order(
-            bot=call.bot,
-            order_data=updated_data,
-            items=updated_data.get("cart_items", []),
-            order_id=order_id
+    # To'lov turi va kvitansiya tugmalarini shakllantirish
+    receipt_kb = InlineKeyboardMarkup(row_width=1)
+    
+    chan_id = None
+    chan_msg_id = None
+
+    if payment_method == "cash":
+        receipt += "\n\n⏳ <i>Buyurtmangiz qabul qilindi. 60 soniya ichida bekor qilishingiz mumkin.</i>"
+        receipt_kb.add(
+            InlineKeyboardButton("❌ Buyurtmani bekor qilish (60s)", callback_data=f"user_cancel_order_{order_id}")
         )
-    except Exception as e:
-        logger.error(f"Notification background task failed: {e}")
+        # Naqd pulda oshxonaga zudlik bilan yuboriladi
+        try:
+            chan_id, chan_msg_id = await notify_admins_new_order(
+                bot=call.bot,
+                order_data=updated_data,
+                items=updated_data.get("cart_items", []),
+                order_id=order_id
+            )
+        except Exception as e:
+            logger.error(f"Notification background task failed: {e}")
+
+    elif payment_method == "click":
+        click_link = generate_click_link(order_id, final_total)
+        receipt += "\n\n💳 <b>To'lovni amalga oshirish uchun quyidagi tugmani bosing:</b>\n<i>(To'lov tasdiqlangach buyurtma oshxonaga uzatiladi)</i>"
+        receipt_kb.add(InlineKeyboardButton("🔹 Click orqali to'lash", url=click_link))
+        receipt_kb.add(InlineKeyboardButton("❌ Buyurtmani bekor qilish (60s)", callback_data=f"user_cancel_order_{order_id}"))
+
+    elif payment_method == "payme":
+        payme_link = generate_payme_link(order_id, final_total)
+        receipt += "\n\n💳 <b>To'lovni amalga oshirish uchun quyidagi tugmani bosing:</b>\n<i>(To'lov tasdiqlangach buyurtma oshxonaga uzatiladi)</i>"
+        receipt_kb.add(InlineKeyboardButton("💳 Payme orqali to'lash", url=payme_link))
+        receipt_kb.add(InlineKeyboardButton("❌ Buyurtmani bekor qilish (60s)", callback_data=f"user_cancel_order_{order_id}"))
+
+    user_msg = await call.message.answer(receipt, parse_mode="HTML", reply_markup=receipt_kb)
+
+    # 60 soniyalik bekor qilish hisoblagichini boshlash
+    await start_order_cancel_window(
+        bot=call.bot,
+        order_id=order_id,
+        user_id=user_id,
+        user_chat_id=user_msg.chat.id,
+        user_msg_id=user_msg.message_id,
+        channel_id=chan_id,
+        channel_msg_id=chan_msg_id,
+        duration=60
+    )
 
     # 6. FSM holatini yakunlash
     await state.finish()
@@ -812,4 +855,61 @@ def register_order_handlers(dp: Dispatcher):
         lambda c: c.data.startswith("pay_method:"),
         state=OrderStates.waiting_for_payment_method
     )
+
+    # 7. 60 soniyalik bekor qilish tugmasi
+    dp.register_callback_query_handler(
+        callback_user_cancel_order,
+        lambda c: c.data.startswith("user_cancel_order_"),
+        state="*"
+    )
+
+    # 8. Mijoz baholashi (1-5 yulduz)
+    dp.register_callback_query_handler(
+        callback_rate_order,
+        lambda c: c.data.startswith("rate_"),
+        state="*"
+    )
+
+
+async def callback_user_cancel_order(call: types.CallbackQuery):
+    """Mijoz tomonidan 60 soniya ichida buyurtmani bekor qilish."""
+    try:
+        order_id = int(call.data.split("_")[-1])
+    except Exception:
+        await call.answer("Xatolik yuz berdi.", show_alert=True)
+        return
+
+    success, msg = await handle_user_cancel_order(call.bot, order_id, call.from_user.id)
+    await call.answer(msg, show_alert=True)
+    if success:
+        try:
+            await call.message.edit_text(
+                call.message.text + "\n\n❌ <b>BUYURTMA BEKOR QILINDI</b>",
+                parse_mode="HTML",
+                reply_markup=None
+            )
+        except Exception:
+            pass
+
+
+async def callback_rate_order(call: types.CallbackQuery):
+    """Mijozning 1-5 yulduzli bahosini qabul qilish."""
+    try:
+        parts = call.data.split("_")
+        order_id = int(parts[1])
+        rating = int(parts[2])
+    except Exception:
+        await call.answer("Xatolik!", show_alert=True)
+        return
+
+    await add_feedback(call.from_user.id, order_id, rating, comment="")
+    await call.answer(f"⭐ {rating} yulduzli bahoyingiz uchun katta rahmat!", show_alert=True)
+    try:
+        await call.message.edit_text(
+            call.message.text + f"\n\n⭐ <b>Bahoyingiz:</b> {rating} yulduz qabul qilindi. Rahmat!",
+            parse_mode="HTML",
+            reply_markup=None
+        )
+    except Exception:
+        pass
 

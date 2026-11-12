@@ -46,3 +46,11 @@ PORT = int(os.getenv("PORT", "8080"))
 DATABASE_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "fastfood.db"))
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Rasmiy to'lov tizimlari sozlamalari
+CLICK_MERCHANT_ID = os.getenv("CLICK_MERCHANT_ID", "demo_click_merchant")
+CLICK_SERVICE_ID = os.getenv("CLICK_SERVICE_ID", "demo_click_service")
+CLICK_SECRET_KEY = os.getenv("CLICK_SECRET_KEY", "demo_click_secret")
+
+PAYME_MERCHANT_ID = os.getenv("PAYME_MERCHANT_ID", "demo_payme_merchant")
+PAYME_MERCHANT_KEY = os.getenv("PAYME_MERCHANT_KEY", "demo_payme_key")
+

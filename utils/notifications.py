@@ -1,15 +1,29 @@
+"""
+Telegram Bildirishnomalari (Oshxona, Kuryer va Mijoz)
+"""
 import logging
 from aiogram import Bot
-from typing import Dict, Any, List
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from typing import Dict, Any, List, Optional, Tuple
 from config import ADMIN_CHANNEL_ID, DELIVERY_CHANNEL_ID
 from keyboards.admin_keyboard import get_kitchen_channel_kb, get_courier_start_kb
 
 logger = logging.getLogger(__name__)
 
+def get_rating_keyboard(order_id: int) -> InlineKeyboardMarkup:
+    """Buyurtma yetkazilgandan so'ng 1-5 yulduzli baholash tugmalari."""
+    kb = InlineKeyboardMarkup(row_width=5)
+    buttons = [
+        InlineKeyboardButton(text=f"⭐ {i}", callback_data=f"rate_{order_id}_{i}")
+        for i in range(1, 6)
+    ]
+    kb.row(*buttons)
+    return kb
 
-async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: List[Dict[str, Any]], order_id: int):
+async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: List[Dict[str, Any]], order_id: int) -> Tuple[Optional[int], Optional[int]]:
     """
     Yangi buyurtma haqida oshxona/filial kanaliga va kuryer kanaliga xabar yuboradi.
+    (channel_id, channel_msg_id) ni qaytaradi.
     """
     delivery_type = order_data.get("delivery_type", "delivery")
     is_delivery = (delivery_type == "delivery")
@@ -20,9 +34,9 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
     # Mahsulotlar ro'yxati
     items_text = ""
     for idx, itm in enumerate(items, 1):
-        name = itm.get("name", "Noma'lum")
+        name = itm.get("name") or itm.get("product_name", "Noma'lum")
         qty = itm.get("quantity", 1)
-        price = itm.get("price", 0)
+        price = itm.get("price") or itm.get("price_at_time", 0)
         total = itm.get("total_price", qty * price)
         items_text += f"{idx}. <b>{name}</b> x {qty} dona — <i>{total:,} so'm</i>\n"
 
@@ -36,14 +50,14 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
 
     if is_delivery:
         kitchen_msg += (
-            f"📍 <b>Manzil:</b> {order_data.get('address', 'Kiritilmagan')}\n"
+            f"📍 <b>Manzil:</b> {order_data.get('address') or order_data.get('delivery_address', 'Kiritilmagan')}\n"
             f"📏 <b>Masofa:</b> {order_data.get('distance_km', 0):.1f} km\n"
         )
     else:
         kitchen_msg += f"🍽 <b>Stol raqami:</b> #{order_data.get('table_number', '-')}\n"
 
     kitchen_msg += (
-        f"📞 <b>Telefon:</b> {order_data.get('phone', '-')}\n"
+        f"📞 <b>Telefon:</b> {order_data.get('phone') or order_data.get('phone_number', '-')}\n"
         f"👤 <b>Mijoz:</b> {order_data.get('full_name', 'Mijoz')} (ID: <code>{order_data.get('user_id')}</code>)\n"
     )
 
@@ -63,35 +77,38 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
     if is_delivery:
         kitchen_msg += f"🛵 Yetkazish narxi: {order_data.get('delivery_fee', 0):,} so'm\n"
 
+    final_total = order_data.get('final_total') or order_data.get('total_amount', 0)
     kitchen_msg += (
-        f"💰 <b>JAMI:</b> <b>{order_data.get('final_total', 0):,} so'm</b>\n"
+        f"💰 <b>JAMI:</b> <b>{final_total:,} so'm</b>\n"
         f"💳 <b>To'lov turi:</b> <b>{payment_badge}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━"
     )
 
-    # Oshxona kanaliga yuborish
     target_channel = order_data.get("branch_channel_id") or ADMIN_CHANNEL_ID
+    channel_msg_id = None
     try:
-        await bot.send_message(
+        sent = await bot.send_message(
             chat_id=target_channel,
             text=kitchen_msg,
             parse_mode="HTML",
             reply_markup=get_kitchen_channel_kb(order_id)
         )
+        channel_msg_id = sent.message_id
         logger.info(f"Kitchen notification sent to channel {target_channel} for order #{order_id}")
     except Exception as e:
         logger.error(f"Error sending kitchen notification to {target_channel}: {e}")
 
-    # Agar yetkazib berish bo'lsa, Kuryer kanaliga alohida yuborish
+    # Kuryer kanaliga yuborish
     if is_delivery and DELIVERY_CHANNEL_ID:
+        phone_val = order_data.get('phone') or order_data.get('phone_number', '-')
         courier_msg = (
             f"🛵 <b>KURYER UCHUN BUYURTMA #{order_id}</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"🏢 <b>Filialdan:</b> {order_data.get('branch_name', 'Bosh filial')}\n"
-            f"📍 <b>Manzil:</b> {order_data.get('address', 'Kiritilmagan')}\n"
+            f"📍 <b>Manzil:</b> {order_data.get('address') or order_data.get('delivery_address', 'Kiritilmagan')}\n"
             f"📏 <b>Masofa:</b> {order_data.get('distance_km', 0):.1f} km\n"
-            f"📞 <b>Mijoz telefoni:</b> <a href=\"tel:{order_data.get('phone')}\">{order_data.get('phone')}</a>\n"
-            f"💰 <b>Mijozdan olinadigan summa:</b> <b>{order_data.get('final_total', 0):,} so'm</b> ({payment_badge})\n"
+            f"📞 <b>Mijoz telefoni:</b> <a href=\"tel:{phone_val}\">{phone_val}</a>\n"
+            f"💰 <b>Mijozdan olinadigan summa:</b> <b>{final_total:,} so'm</b> ({payment_badge})\n"
             f"🛵 <b>Yetkazish haqi:</b> {order_data.get('delivery_fee', 0):,} so'm\n"
         )
         if order_data.get("note"):
@@ -104,11 +121,38 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
                 parse_mode="HTML",
                 reply_markup=get_courier_start_kb(order_id)
             )
-            lat = order_data.get("lat")
-            lon = order_data.get("lon")
+            lat = order_data.get("lat") or order_data.get("latitude")
+            lon = order_data.get("lon") or order_data.get("longitude")
             if lat and lon:
                 await bot.send_location(chat_id=DELIVERY_CHANNEL_ID, latitude=lat, longitude=lon)
             logger.info(f"Courier notification sent to {DELIVERY_CHANNEL_ID} for order #{order_id}")
         except Exception as e:
             logger.error(f"Error sending courier notification to {DELIVERY_CHANNEL_ID}: {e}")
 
+    return target_channel, channel_msg_id
+
+async def send_status_update_to_user(bot: Bot, user_id: int, order_id: int, new_status: str):
+    """Mijozga buyurtma statusi o'zgarganida bildirishnoma yuborish."""
+    status_messages = {
+        "preparing": "👨‍🍳 <b>Buyurtmangiz #{order_id} qabul qilindi va oshxonada tayyorlanmoqda!</b>\nTez orada kuryerga topshiriladi.",
+        "delivering": "🛵 <b>Buyurtmangiz #{order_id} kuryerga berildi va yo'lga chiqdi!</b>\nKuryer yaqinlashganda siz bilan bog'lanadi.",
+        "completed": "✅ <b>Buyurtmangiz #{order_id} muvaffaqiyatli yetkazib berildi!</b>\nYoqimli ishtaha! Xizmatimiz sifatini yaxshilash uchun taom va yetkazishni baholang:",
+        "cancelled": "❌ <b>Afsuski, buyurtmangiz #{order_id} bekor qilindi.</b>\nSavollar bo'lsa ma'muriyat bilan bog'laning."
+    }
+    
+    text = status_messages.get(new_status)
+    if not text:
+        return
+
+    formatted_text = text.format(order_id=order_id)
+    reply_markup = get_rating_keyboard(order_id) if new_status == "completed" else None
+
+    try:
+        await bot.send_message(
+            chat_id=user_id,
+            text=formatted_text,
+            parse_mode="HTML",
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        logger.warning(f"Foydalanuvchiga status bildirishnomasini yuborib bo'lmadi ({user_id}): {e}")

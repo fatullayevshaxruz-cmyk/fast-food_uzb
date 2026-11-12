@@ -15,3 +15,4 @@ os.chdir(FASTFOOD_BOT_DIR)
 
 if __name__ == "__main__":
     import bot
+    bot.main()

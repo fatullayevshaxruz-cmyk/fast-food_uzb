@@ -102,7 +102,7 @@ async def on_shutdown(dp):
     await bot.close()
 
 
-if __name__ == '__main__':
+def main():
     from aiogram import executor
     from aiohttp import web
 
@@ -265,3 +265,8 @@ if __name__ == '__main__':
         loop.run_until_complete(run_resilient_bot())
     finally:
         loop.run_until_complete(on_shutdown(dp))
+
+
+if __name__ == '__main__':
+    main()
+

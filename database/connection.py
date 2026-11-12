@@ -110,3 +110,4 @@ async def fetch_all(query: str, params: Tuple = ()) -> List[Dict[str, Any]]:
             async with db.execute(query, params) as cursor:
                 rows = await cursor.fetchall()
                 return [dict(r) for r in rows]
+

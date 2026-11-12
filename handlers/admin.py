@@ -102,23 +102,23 @@ class CustomerFeedback(StatesGroup):
 # ==========================================
 
 async def generate_dashboard_text() -> str:
-    """Jonli dashboard matnini generatsiya qiladi."""
+    """Jonli dashboard matnini generatsiya qiladi (2-rasmdagi dizayn bilan bir xil)."""
     stats = await get_dashboard_stats()
     now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
 
     text = (
         f"🛠 <b>FASTFOOD BOSHQARUV PANELI (LIVE DASHBOARD)</b>\n"
         f"<i>Yangilangan vaqt: {now_str}</i>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🟢 <b>Bugungi tushum (Kassa):</b> <b>{stats['today_revenue']:,} so'm</b>\n"
-        f"📦 <b>Bugungi buyurtmalar:</b> <b>{stats['today_orders']} ta</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"⏳ <b>Kutilayotgan zakazlar:</b> {stats['pending_count']} ta\n"
-        f"👨‍🍳 <b>Oshxonada (Tayyorlanmoqda):</b> {stats['preparing_count']} ta\n"
-        f"🛵 <b>Kuryer yo'lida (Yetkazilmoqda):</b> {stats['delivering_count']} ta\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"👥 <b>Jami ro'yxatdan o'tgan mijozlar:</b> <b>{stats['users_count']} nafar</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🟢 Bugungi tushum (Kassa): {stats['today_revenue']:,} so'm\n"
+        f"📦 Bugungi buyurtmalar: {stats['today_orders']} ta\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"⏳ Kutilayotgan zakazlar: {stats['pending_count']} ta\n"
+        f"👨‍🍳 Oshxonada (Tayyorlanmoqda): {stats['preparing_count']} ta\n"
+        f"🛵 Kuryer yo'lida (Yetkazilmoqda): {stats['delivering_count']} ta\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👥 Jami ro'yxatdan o'tgan mijozlar: {stats.get('total_users', stats.get('users_count', 0))} nafar\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"Quyidagi bo'limlardan birini tanlang:"
     )
     return text
@@ -171,22 +171,29 @@ async def send_customer_status_notification(bot, user_id: int, order_id: int, ne
 # ==========================================
 
 async def cmd_admin(message: types.Message):
-    """Admin panelga /admin yoki tugma orqali kirish (1-rasmdagi pastki Reply klaviatura chiqadi)."""
+    """Admin panelga /admin yoki tugma orqali kirish (2-rasmdagi inline dashboard chiqadi)."""
     if not is_admin(message.from_user.id):
         await message.answer("⛔️ Kechirasiz, sizda admin huquqlari mavjud emas!")
         return
 
     dashboard_text = await generate_dashboard_text()
-    # 1-rasmdagi pastki klaviatura joyiga Admin tugmalari chiqadi!
-    await message.answer(dashboard_text, reply_markup=get_admin_reply_kb(), parse_mode="HTML")
+    await message.answer(
+        dashboard_text,
+        reply_markup=get_admin_dashboard_kb(),
+        parse_mode="HTML"
+    )
 
 
 async def admin_reply_refresh(message: types.Message):
-    """Pastki '🔄 Yangilash' tugmasi bosilganda."""
+    """'🔄 Yangilash' tugmasi bosilganda."""
     if not is_admin(message.from_user.id):
         return
     dashboard_text = await generate_dashboard_text()
-    await message.answer(dashboard_text, reply_markup=get_admin_reply_kb(), parse_mode="HTML")
+    await message.answer(
+        dashboard_text,
+        reply_markup=get_admin_dashboard_kb(),
+        parse_mode="HTML"
+    )
 
 
 async def admin_reply_orders(message: types.Message):

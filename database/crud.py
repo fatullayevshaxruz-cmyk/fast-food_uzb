@@ -412,7 +412,8 @@ async def get_dashboard_stats() -> Dict[str, Any]:
         "pending_count": pending_row["c"] if pending_row else 0,
         "preparing_count": preparing_row["c"] if preparing_row else 0,
         "delivering_count": delivering_row["c"] if delivering_row else 0,
-        "total_users": users_count
+        "total_users": users_count,
+        "users_count": users_count
     }
 
 async def get_analytics_stats(days: int = 7) -> Dict[str, Any]:

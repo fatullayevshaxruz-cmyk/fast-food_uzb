@@ -482,3 +482,4 @@ def register_webapp_routes(app: web.Application, bot, static_dir):
     # To'lov webhooklari
     app.router.add_post("/payment/click", click_webhook_handler)
     app.router.add_post("/payment/payme", payme_webhook_handler)
+

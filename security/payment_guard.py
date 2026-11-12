@@ -282,3 +282,4 @@ async def handle_payme_request(data: Dict[str, Any], auth_header: Optional[str],
         }
 
     return {"error": {"code": -32601, "message": "Method not found"}, "id": req_id}
+

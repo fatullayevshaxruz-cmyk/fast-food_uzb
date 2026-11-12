@@ -46,3 +46,4 @@ def validate_init_data(init_data: str, bot_token: str = BOT_TOKEN) -> Tuple[bool
         return False, None
     except Exception as e:
         return False, None
+

@@ -28,17 +28,8 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
     delivery_type = order_data.get("delivery_type", "delivery")
     is_delivery = (delivery_type == "delivery")
     
-    delivery_type_str = "Yetkazib berish" if is_delivery else f"Shu yerda (Stol #{order_data.get('table_number', '-')})"
-    
-    pay_raw = str(order_data.get("payment_method", "cash")).lower()
-    if pay_raw == "cash":
-        payment_display = "Naqd pul (Yetkazib berilganda)"
-    elif pay_raw == "click":
-        payment_display = "Karta orqali to'landi (Click)"
-    elif pay_raw == "payme":
-        payment_display = "Karta orqali to'landi (Payme)"
-    else:
-        payment_display = pay_raw.capitalize()
+    type_badge = "🛵 Yetkazib berish" if is_delivery else f"🍽 Shu yerda (Stol #{order_data.get('table_number', '-')})"
+    payment_badge = order_data.get("payment_method", "cash").upper()
 
     # Mahsulotlar ro'yxati
     items_text = ""
@@ -47,38 +38,50 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
         qty = itm.get("quantity", 1)
         price = itm.get("price") or itm.get("price_at_time", 0)
         total = itm.get("total_price", qty * price)
-        items_text += f"  ▫️ {name} x {qty} = {total:,} so'm\n"
+        items_text += f"{idx}. <b>{name}</b> x {qty} dona — <i>{total:,} so'm</i>\n"
 
-    user_name = order_data.get('full_name', 'Mijoz')
-    username = order_data.get('username')
-    username_display = f"@{username}" if username else f"ID: {order_data.get('user_id')}"
-    phone = order_data.get('phone') or order_data.get('phone_number', '-')
-    address = order_data.get('address') or order_data.get('delivery_address', 'Kiritilmagan')
-    distance_km = order_data.get('distance_km', 0)
-    final_total = order_data.get('final_total') or order_data.get('total_amount', 0)
-
-    # 4. Oshxona kanali xabari (Section 4 dizayni)
+    # Filial / oshxona uchun to'liq xabar
     kitchen_msg = (
-        f"🆕 <b>Yangi buyurtma #{order_id}</b>\n"
-        f"⏳ <i>Holat: Kafe tasdiqlashi kutilmoqda...</i>\n\n"
-        f"👤 <b>Mijoz:</b> {user_name} ({username_display})\n"
-        f"📞 <b>Telefon:</b> {phone}\n"
-        f"🛵 <b>Turi:</b> {delivery_type_str}\n"
+        f"🔔 <b>YANGI BUYURTMA #{order_id}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📌 <b>Turi:</b> {type_badge}\n"
+        f"🏢 <b>Filial:</b> {order_data.get('branch_name', 'Bosh filial')}\n"
     )
 
     if is_delivery:
-        kitchen_msg += f"📍 <b>Manzil:</b> {address} ({distance_km:.1f} km)\n"
+        kitchen_msg += (
+            f"📍 <b>Manzil:</b> {order_data.get('address') or order_data.get('delivery_address', 'Kiritilmagan')}\n"
+            f"📏 <b>Masofa:</b> {order_data.get('distance_km', 0):.1f} km\n"
+        )
     else:
-        kitchen_msg += f"🪑 <b>Stol raqami:</b> #{order_data.get('table_number', '-')}\n"
-
-    if order_data.get("note"):
-        kitchen_msg += f"📝 <b>Izoh:</b> <i>{order_data.get('note')}</i>\n"
+        kitchen_msg += f"🍽 <b>Stol raqami:</b> #{order_data.get('table_number', '-')}\n"
 
     kitchen_msg += (
-        f"\n🍛 <b>Buyurtma tarkibi:</b>\n"
-        f"{items_text}\n"
-        f"💰 <b>Umumiy summa:</b> {final_total:,} so'm\n"
-        f"💳 <b>To'lov:</b> {payment_display}"
+        f"📞 <b>Telefon:</b> {order_data.get('phone') or order_data.get('phone_number', '-')}\n"
+        f"👤 <b>Mijoz:</b> {order_data.get('full_name', 'Mijoz')} (ID: <code>{order_data.get('user_id')}</code>)\n"
+    )
+
+    if order_data.get("note"):
+        kitchen_msg += f"📝 <b>Izoh:</b> {order_data.get('note')}\n"
+
+    kitchen_msg += (
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📋 <b>Tarkib:</b>\n{items_text}"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 Mahsulotlar: {order_data.get('items_total', 0):,} so'm\n"
+    )
+
+    if order_data.get("discount_amount", 0) > 0:
+        kitchen_msg += f"🏷 Chegirma ({order_data.get('promo_code', '')}): -{order_data.get('discount_amount', 0):,} so'm\n"
+
+    if is_delivery:
+        kitchen_msg += f"🛵 Yetkazish narxi: {order_data.get('delivery_fee', 0):,} so'm\n"
+
+    final_total = order_data.get('final_total') or order_data.get('total_amount', 0)
+    kitchen_msg += (
+        f"💰 <b>JAMI:</b> <b>{final_total:,} so'm</b>\n"
+        f"💳 <b>To'lov turi:</b> <b>{payment_badge}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
     )
 
     target_channel = order_data.get("branch_channel_id") or ADMIN_CHANNEL_ID
@@ -97,16 +100,19 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
 
     # Kuryer kanaliga yuborish
     if is_delivery and DELIVERY_CHANNEL_ID:
+        phone_val = order_data.get('phone') or order_data.get('phone_number', '-')
         courier_msg = (
             f"🛵 <b>KURYER UCHUN BUYURTMA #{order_id}</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🏢 <b>Filial:</b> {order_data.get('branch_name', 'Darxan Burger')}\n"
-            f"📍 <b>Manzil:</b> {address} ({distance_km:.1f} km)\n"
-            f"📞 <b>Mijoz telefoni:</b> <a href=\"tel:{phone}\">{phone}</a>\n"
-            f"💰 <b>Mijozdan olinadigan summa:</b> <b>{final_total:,} so'm</b> ({payment_display})\n"
+            f"🏢 <b>Filialdan:</b> {order_data.get('branch_name', 'Bosh filial')}\n"
+            f"📍 <b>Manzil:</b> {order_data.get('address') or order_data.get('delivery_address', 'Kiritilmagan')}\n"
+            f"📏 <b>Masofa:</b> {order_data.get('distance_km', 0):.1f} km\n"
+            f"📞 <b>Mijoz telefoni:</b> <a href=\"tel:{phone_val}\">{phone_val}</a>\n"
+            f"💰 <b>Mijozdan olinadigan summa:</b> <b>{final_total:,} so'm</b> ({payment_badge})\n"
+            f"🛵 <b>Yetkazish haqi:</b> {order_data.get('delivery_fee', 0):,} so'm\n"
         )
         if order_data.get("note"):
-            courier_msg += f"📝 <b>Izoh:</b> <i>{order_data.get('note')}</i>\n"
+            courier_msg += f"📝 <b>Izoh:</b> {order_data.get('note')}\n"
 
         try:
             await bot.send_message(

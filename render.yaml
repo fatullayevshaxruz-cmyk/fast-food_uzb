@@ -1,11 +1,12 @@
 services:
   - type: web
     name: fastfood-bot-webapp
-    env: python
+    runtime: python
     region: frankfurt
     plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python main.py"
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: cd fastfood_bot && python3 bot.py
+    autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: 3.10.14
@@ -23,4 +24,15 @@ services:
         sync: false
       - key: WEB_APP_URL
         sync: false
-
+      - key: RENDER_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: WORKING_HOURS_START
+        value: "9"
+      - key: WORKING_HOURS_END
+        value: "23"
+      - key: MIN_ORDER_AMOUNT
+        value: "30000"
+      - key: DELIVERY_FEE
+        value: "10000"

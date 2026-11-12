@@ -102,19 +102,24 @@ class CustomerFeedback(StatesGroup):
 # ==========================================
 
 async def generate_dashboard_text() -> str:
-    """Jonli dashboard matnini generatsiya qiladi."""
+    """Jonli dashboard matnini generatsiya qiladi (2-rasmdagi dizayn bilan bir xil)."""
     stats = await get_dashboard_stats()
+    now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
 
     text = (
-        f"🛠 <b>DARXAN BURGER — BOSHQARUV PANELI</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🟢 <b>Bugungi tushum:</b> {stats['today_revenue']:,} so'm ({stats['today_orders']} ta zakaz)\n"
-        f"👥 <b>Jami mijozlar:</b> {stats.get('total_users', stats.get('users_count', 0))} ta\n\n"
-        f"📊 <b>Faol buyurtmalar:</b>\n"
-        f"  ▫️ ⏳ Kutilmoqda: {stats['pending_count']} ta\n"
-        f"  ▫️ 👨‍🍳 Oshxonada: {stats['preparing_count']} ta\n"
-        f"  ▫️ 🛵 Yo'lda: {stats['delivering_count']} ta\n"
-        f"━━━━━━━━━━━━━━━━━━━━━"
+        f"🛠 <b>FASTFOOD BOSHQARUV PANELI (LIVE DASHBOARD)</b>\n"
+        f"<i>Yangilangan vaqt: {now_str}</i>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🟢 Bugungi tushum (Kassa): {stats['today_revenue']:,} so'm\n"
+        f"📦 Bugungi buyurtmalar: {stats['today_orders']} ta\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"⏳ Kutilayotgan zakazlar: {stats['pending_count']} ta\n"
+        f"👨‍🍳 Oshxonada (Tayyorlanmoqda): {stats['preparing_count']} ta\n"
+        f"🛵 Kuryer yo'lida (Yetkazilmoqda): {stats['delivering_count']} ta\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👥 Jami ro'yxatdan o'tgan mijozlar: {stats.get('total_users', stats.get('users_count', 0))} nafar\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"Quyidagi bo'limlardan birini tanlang:"
     )
     return text
 
@@ -123,20 +128,23 @@ async def send_customer_status_notification(bot, user_id: int, order_id: int, ne
     """Mijozga buyurtma holati o'zgargani haqida push-notification jo'natadi."""
     status_messages = {
         "preparing": (
-            f"👨‍🍳 <b>Buyurtmangiz #{order_id} qabul qilindi!</b>\n"
-            f"Oshpazlarimiz sizning mazali taomlaringizni mehr bilan tayyorlashga kirishishdi. 🍔✨"
+            f"👨‍🍳 <b>Buyurtmangiz #{order_id} tayyorlanmoqda!</b>\n\n"
+            f"Oshpazlarimiz taomingizni mehr bilan tayyorlashga kirishishdi. "
+            f"Tez orada kuryerga topshiriladi! 🍔🍕"
         ),
         "delivering": (
-            f"🛵 <b>Buyurtmangiz #{order_id} yo'lga chiqdi!</b>\n"
-            f"Kuryerimiz issiqqina taomlaringiz bilan manzilingiz sari shoshilmoqda. Iltimos, telefoningizni yoningizda tuting! 🚀"
+            f"🛵 <b>Buyurtmangiz #{order_id} yo'lga chiqdi!</b>\n\n"
+            f"Kuryerimiz buyurtmangizni siz tomon olib ketmoqda. "
+            f"Iltimos, telefoningizni ochiq tuting! 🚀"
         ),
         "completed": (
-            f"🎉 <b>Buyurtmangiz #{order_id} yetkazildi!</b>\n"
-            f"Darxan Burger'ni tanlaganingiz uchun rahmat! Yoqimli ishtaha! 😋❤️"
+            f"✅ <b>Buyurtmangiz #{order_id} yetkazildi!</b>\n\n"
+            f"Yoqimli ishtaha tilaymiz! Bizni tanlaganingiz uchun rahmat. 😊\n\n"
+            f"Iltimos, xizmatimiz sifatini baholang:"
         ),
         "cancelled": (
-            f"😔 <b>Buyurtmangiz #{order_id} bekor qilindi.</b>\n"
-            f"Keltirilgan noqulayliklar uchun uzr so'raymiz. Savollaringiz bo'lsa, operatorimiz bilan bog'laning."
+            f"❌ <b>Buyurtmangiz #{order_id} bekor qilindi.</b>\n\n"
+            f"Agar bu xatolik bo'lsa yoki savollaringiz bo'lsa, operatorimiz bilan bog'laning."
         )
     }
 

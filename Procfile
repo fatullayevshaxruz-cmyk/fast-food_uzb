@@ -1,2 +1,1 @@
-web: python3 main.py
-
+web: cd fastfood_bot && python3 bot.py

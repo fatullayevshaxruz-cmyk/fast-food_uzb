@@ -1,0 +1,96 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent
+PARENT_DIR = BASE_DIR.parent
+
+# .env faylini yuklash (ham fastfood_bot ichidan, ham root dan)
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(PARENT_DIR / ".env")
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = os.getenv("ADMIN_ID") # Vergul bilan ajratilgan ID lar bo'lishi mumkin
+ADMIN_CHANNEL_ID = os.getenv("ADMIN_CHANNEL_ID")
+BRANCH_1_CHANNEL_ID = os.getenv("BRANCH_1_CHANNEL_ID") or ADMIN_CHANNEL_ID
+BRANCH_2_CHANNEL_ID = os.getenv("BRANCH_2_CHANNEL_ID") or BRANCH_1_CHANNEL_ID or ADMIN_CHANNEL_ID
+DELIVERY_CHANNEL_ID = os.getenv("DELIVERY_CHANNEL_ID") or ADMIN_CHANNEL_ID
+
+def is_admin(user_id: int) -> bool:
+    """Foydalanuvchi admin ekanligini tekshiradi."""
+    if not ADMIN_ID:
+        return False
+    admin_list = [a.strip() for a in str(ADMIN_ID).split(",") if a.strip()]
+    return str(user_id) in admin_list
+DB_USER = os.getenv("DB_USER", "postgres")
+
+DB_PASS = os.getenv("DB_PASS", "postgres")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "fastfood_bot")
+
+POSTGRES_URI = (
+    os.getenv("DATABASE_URL")
+    or os.getenv("DB_URL")
+    or f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
+
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = os.getenv("REDIS_PORT", "6379")
+
+PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN") # Click or Payme token
+
+# ── Click & Payme to'g'ridan-to'g'ri ilovaga kirish (Direct Payment Links) ──
+# DIQQAT: Bu qiymatlar faqat Render → Environment (yoki .env) dan olinadi.
+# Kiritilmagan bo'lsa — tegishli to'lov tugmasi botda ham, WebApp'da ham YASHIRILADI.
+CLICK_MERCHANT_ID = (os.getenv("CLICK_MERCHANT_ID") or "").strip()
+CLICK_SERVICE_ID  = (os.getenv("CLICK_SERVICE_ID") or "").strip()
+PAYME_MERCHANT_ID = (os.getenv("PAYME_MERCHANT_ID") or "").strip()
+
+# Avval kodda turgan soxta namuna qiymatlar — haqiqiy deb hisoblanmaydi
+_PLACEHOLDER_IDS = {"", "54321", "12345", "64b0f0000000000000000000"}
+
+PAYME_ENABLED = PAYME_MERCHANT_ID not in _PLACEHOLDER_IDS
+CLICK_ENABLED = (CLICK_MERCHANT_ID not in _PLACEHOLDER_IDS
+                 and CLICK_SERVICE_ID not in _PLACEHOLDER_IDS)
+
+# Test provayder tokeni — Render'da PAYMENT_PROVIDER_TOKEN o'rnatilmagan bo'lsa ishlatiladi.
+# Haqiqiy to'lov uchun Render → Environment da PAYMENT_PROVIDER_TOKEN ni haqiqiy token bilan qo'ying.
+_DEFAULT_TEST_PAYMENT_TOKEN = "1650291590:TEST:1780943696815_x3KZ2Ie4RN3hPegD"
+if not (PAYMENT_PROVIDER_TOKEN and PAYMENT_PROVIDER_TOKEN.strip()):
+    PAYMENT_PROVIDER_TOKEN = _DEFAULT_TEST_PAYMENT_TOKEN
+
+# ── Yangi sozlamalar ─────────────────────────────────────────────────
+
+# Ish vaqti (soat)
+WORKING_HOURS_START = int(os.getenv("WORKING_HOURS_START", "9"))   # 09:00
+WORKING_HOURS_END   = int(os.getenv("WORKING_HOURS_END", "23"))    # 23:00
+
+# Yetkazish narxi (so'mda)
+DELIVERY_FEE = int(os.getenv("DELIVERY_FEE", "10000"))             # 10,000 so'm
+
+# Minimal buyurtma summasi (yetkazish uchun)
+MIN_ORDER_AMOUNT = int(os.getenv("MIN_ORDER_AMOUNT", "30000"))     # 30,000 so'm
+
+# Online to'lov (karta) — standart holatda YOQILGAN
+# .env / Render da ONLINE_PAYMENT_ENABLED=0 qilib o'chirish mumkin
+ONLINE_PAYMENT_ENABLED = os.getenv("ONLINE_PAYMENT_ENABLED", "1") == "1"
+if not ONLINE_PAYMENT_ENABLED:
+    PAYME_ENABLED = False
+    CLICK_ENABLED = False
+# Hech bo'lmasa bitta haqiqiy to'lov tizimi sozlangan bo'lsagina online to'lov ko'rsatiladi
+ONLINE_PAYMENT_ENABLED = PAYME_ENABLED or CLICK_ENABLED
+
+# ── Restoran joylashuvi (Buxoro sh., 1-filial: Abu Ali ibn Sino ko'chasi) ──
+RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "39.783420").replace(",", "."))
+RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "64.422526").replace(",", "."))
+
+# ── Masofaga qarab yetkazish narxi ───────────────────────────────────
+# Birinchi FREE_KM km → BASE_FEE; har qo'shimcha km → EXTRA_PER_KM
+DELIVERY_BASE_FEE      = int(os.getenv("DELIVERY_BASE_FEE", "10000"))    # 10,000 so'm
+DELIVERY_EXTRA_PER_KM  = int(os.getenv("DELIVERY_EXTRA_PER_KM", "2000")) # 2,000 so'm/km
+DELIVERY_FREE_KM       = float(os.getenv("DELIVERY_FREE_KM", "3.0"))     # 3 km gacha bepul
+
+# ── Kuryer telefoni (yetkazilmoqda xabarida ko'rsatiladi) ────────────
+COURIER_PHONE = os.getenv("COURIER_PHONE", "")   # misol: "+998901234567"

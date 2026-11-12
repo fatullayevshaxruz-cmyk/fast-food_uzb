@@ -230,9 +230,10 @@ def _get_clean_bukhara_branches(db_rows: Any) -> List[Dict[str, Any]]:
     # Kanal ID larini 1-filial va 2-filial uchun aniq kafolatlash
     for r in rows:
         if int(r.get("id", 0)) == 1:
-            r["admin_chat_id"] = BRANCH_1_CHANNEL_ID or ADMIN_CHANNEL_ID
+            r["admin_chat_id"] = BRANCH_1_CHANNEL_ID or ADMIN_CHANNEL_ID or "-1004376258203"
         elif int(r.get("id", 0)) == 2:
-            r["admin_chat_id"] = BRANCH_2_CHANNEL_ID or BRANCH_1_CHANNEL_ID or ADMIN_CHANNEL_ID
+            r["admin_chat_id"] = BRANCH_2_CHANNEL_ID or BRANCH_1_CHANNEL_ID or ADMIN_CHANNEL_ID or "-1004376258203"
+        r["delivery_channel_id"] = DELIVERY_CHANNEL_ID or "-1003957592099"
     return rows
 
 
@@ -419,7 +420,7 @@ async def route_order_to_nearest_branch(
 ) -> Dict[str, Any]:
     """
     Buyurtmani avtomatik ravishda eng yaqin filialning `admin_chat_id`
-    (1-filial: -1003885234768 yoki 2-filial: -1003631903801) kanaliga yuboradi.
+    (-1004376258203) kanaliga yuboradi.
     Barcha xabarlar bir xil ko'rinishda yuboriladi, faqat filialga qarab
     tegishli kanalga yo'naltiriladi.
     """

@@ -10,12 +10,12 @@ load_dotenv(BASE_DIR / ".env")
 load_dotenv(PARENT_DIR / ".env")
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = os.getenv("ADMIN_ID") # Vergul bilan ajratilgan ID lar bo'lishi mumkin
-ADMIN_CHANNEL_ID = os.getenv("ADMIN_CHANNEL_ID")
-BRANCH_1_CHANNEL_ID = os.getenv("BRANCH_1_CHANNEL_ID") or ADMIN_CHANNEL_ID
-BRANCH_2_CHANNEL_ID = os.getenv("BRANCH_2_CHANNEL_ID") or BRANCH_1_CHANNEL_ID or ADMIN_CHANNEL_ID
-DELIVERY_CHANNEL_ID = os.getenv("DELIVERY_CHANNEL_ID") or ADMIN_CHANNEL_ID
+BOT_TOKEN = os.getenv("BOT_TOKEN", "9054732573:AAEbllPQYRCOcDOxeHGTyQqVHWI_wqz3FAY")
+ADMIN_ID = os.getenv("ADMIN_ID", "1233117662") # Vergul bilan ajratilgan ID lar bo'lishi mumkin
+ADMIN_CHANNEL_ID = os.getenv("ADMIN_CHANNEL_ID", "-1004376258203")
+BRANCH_1_CHANNEL_ID = os.getenv("BRANCH_1_CHANNEL_ID") or ADMIN_CHANNEL_ID or "-1004376258203"
+BRANCH_2_CHANNEL_ID = os.getenv("BRANCH_2_CHANNEL_ID") or BRANCH_1_CHANNEL_ID or "-1004376258203"
+DELIVERY_CHANNEL_ID = os.getenv("DELIVERY_CHANNEL_ID", "-1003957592099")
 
 def is_admin(user_id: int) -> bool:
     """Foydalanuvchi admin ekanligini tekshiradi."""

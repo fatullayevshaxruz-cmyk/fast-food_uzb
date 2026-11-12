@@ -1476,7 +1476,7 @@ async def admin_back_to_main(message: types.Message, state: FSMContext):
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 7. KAFE KANALIDAGI (-1003885234768) QABUL QILISH / BEKOR QILISH
+# 7. KAFE KANALIDAGI (-1004376258203) QABUL QILISH / BEKOR QILISH
 # ══════════════════════════════════════════════════════════════════════
 
 async def cafe_accept_order_callback(call: types.CallbackQuery):
@@ -1615,14 +1615,14 @@ async def cafe_reject_order_callback(call: types.CallbackQuery):
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 8. YETKAZIB BERISH KANALIDAGI (-1003943860489) 2 BOSQICHLI KURYER TUGMALARI
+# 8. YETKAZIB BERISH KANALIDAGI (-1003957592099) 2 BOSQICHLI KURYER TUGMALARI
 #    1-bosqich: "🛵 Yo'lga chiqish" (dlv_start_{order_id}) -> 2-tugmaga aylanadi
 #    2-bosqich: "✅ Buyurtma yetkazildi" (dlv_finish_{order_id}) -> yakunlanadi
 # ══════════════════════════════════════════════════════════════════════
 
 async def delivery_start_callback(call: types.CallbackQuery):
     """
-    -1003943860489 kanalda 1-tugma ("🛵 Yo'lga chiqish") bosilganda:
+    -1003957592099 kanalda 1-tugma ("🛵 Yo'lga chiqish") bosilganda:
       1. Buyurtma holati 'delivering' ga o'zgaradi
       2. Kanaldagi 1-tugma o'rniga ketma-ketlikda 2-tugma ("✅ Buyurtma yetkazildi") chiqadi
       3. Mijozga kreativ "Kuryer yo'lga chiqdi!" xabari boradi
@@ -1779,7 +1779,7 @@ async def delivery_start_callback(call: types.CallbackQuery):
 
 async def delivery_finish_callback(call: types.CallbackQuery):
     """
-    -1003943860489 kanalda 2-tugma ("✅ Buyurtma yetkazildi") bosilganda:
+    -1003957592099 kanalda 2-tugma ("✅ Buyurtma yetkazildi") bosilganda:
       1. Buyurtma holati 'completed' ga o'zgaradi
       2. Kanaldagi xabar "✅ BUYURTMA MUVAFFAQIYATLI YETKAZILDI!" holatiga o'tadi va tugma yopiladi
       3. Mijozga kreativ minnatdorchilik xabari va 5 yulduzli baholash so'rovi boradi
@@ -1909,7 +1909,7 @@ def register_admin_handlers(dp: Dispatcher):
     _PROMO_TEXTS   = ["🎟 Promo kodlar", "🎟 Промо-коды", "🎟 Promo Codes"]
     _CSV_TEXTS     = ["📥 Hisobot (CSV)", "📥 Отчёт (CSV)", "📥 Report (CSV)"]
 
-    # Kafe kanalidagi (-1003885234768) Qabul qilish / Bekor qilish inline tugmalari
+    # Kafe kanalidagi (-1004376258203) Qabul qilish / Bekor qilish inline tugmalari
     dp.register_callback_query_handler(
         cafe_accept_order_callback,
         lambda c: c.data and c.data.startswith("cafe_accept_"),
@@ -1921,7 +1921,7 @@ def register_admin_handlers(dp: Dispatcher):
         state="*",
     )
 
-    # Yetkazib berish kanalidagi (-1003943860489) ketma-ket 2 ta kuryer tugmasi
+    # Yetkazib berish kanalidagi (-1003957592099) ketma-ket 2 ta kuryer tugmasi
     dp.register_callback_query_handler(
         delivery_start_callback,
         lambda c: c.data and c.data.startswith("dlv_start_"),

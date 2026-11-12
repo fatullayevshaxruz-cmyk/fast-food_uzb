@@ -189,7 +189,7 @@ async def resolve_human_address(address: str = None, lat: float = None, lon: flo
 
 def get_cafe_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
     """
-    -1003885234768 (Kafe/Admin kanali) uchun
+    ADMIN_CHANNEL_ID (Kafe/Admin kanali: -1004376258203) uchun
     Buyurtmani qabul qilish yoki bekor qilish tugmalari.
     """
     markup = InlineKeyboardMarkup(row_width=2)
@@ -208,7 +208,7 @@ def get_cafe_approval_keyboard(order_id: int) -> InlineKeyboardMarkup:
 
 def get_delivery_start_keyboard(order_id: int, is_eat_in: bool = False) -> InlineKeyboardMarkup:
     """
-    -1003943860489 (Yetkazib berish / Kuryer kanali) yoki Kafe kanali uchun 1-bosqich tugmasi:
+    DELIVERY_CHANNEL_ID (Yetkazib berish / Kuryer kanali: -1003957592099) uchun 1-bosqich tugmasi:
     Kuryer yo'lga chiqqanda yoki «Shu yerda» buyurtmasi tayyor bo'lganda bosiladi.
     """
     markup = InlineKeyboardMarkup(row_width=1)
@@ -228,7 +228,7 @@ def get_delivery_start_keyboard(order_id: int, is_eat_in: bool = False) -> Inlin
 
 def get_delivery_complete_keyboard(order_id: int, is_eat_in: bool = False) -> InlineKeyboardMarkup:
     """
-    -1003943860489 (Yetkazib berish / Kuryer kanali) yoki Kafe kanali uchun 2-bosqich tugmasi:
+    DELIVERY_CHANNEL_ID (Yetkazib berish / Kuryer kanali: -1003957592099) uchun 2-bosqich tugmasi:
     1-tugma bosilgandan keyin avtomatik shu tugmaga aylanadi.
     """
     markup = InlineKeyboardMarkup(row_width=1)
@@ -255,7 +255,7 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
     Mijoz buyurtma qilganda:
       1. Eng yaqin filialning `admin_chat_id` (yoki ADMIN_CHANNEL_ID) kanaliga yuboriladi
          (✅ Buyurtmani qabul qilish / ❌ Bekor qilish tugmalari bilan).
-      2. DELIVERY_CHANNEL_ID (-1003943860489) ga bu bosqichda YUBORILMAYDI!
+      2. DELIVERY_CHANNEL_ID ga bu bosqichda YUBORILMAYDI!
          Faqat kanalda "Qabul qilish" bosilgandagina yuboriladi.
     """
     is_delivery = (delivery_type == "delivery" and
@@ -273,7 +273,7 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
     address_label = await resolve_human_address(address, loc_lat, loc_lon) if is_delivery else (address or "—")
 
     # Agar target_channel_id berilmagan bo'lsa, filialni avtomatik aniqlab
-    # 1-filial (-1003885234768) yoki 2-filial (-1003631903801) kanaliga yo'naltiramiz
+    # tegishli kanalga yo'naltiramiz
     if not target_channel_id:
         try:
             from utils.geo_routing import resolve_branch_for_order
@@ -381,8 +381,8 @@ async def notify_admins_new_order(bot, order_id, total_amount, user, items, phon
 
 async def send_accepted_order_to_delivery_channel(bot, order_id: int):
     """
-    -1003885234768 kanalda buyurtma QABUL QILINGANDAN KEYIN
-    -1003943860489 (DELIVERY_CHANNEL_ID) kanaliga buyurtma ma'lumotlari va lokatsiyani yuboradi.
+    Kafe kanalida buyurtma QABUL QILINGANDAN KEYIN
+    DELIVERY_CHANNEL_ID (-1003957592099) kanaliga buyurtma ma'lumotlari va lokatsiyani yuboradi.
     """
     if not DELIVERY_CHANNEL_ID:
         return

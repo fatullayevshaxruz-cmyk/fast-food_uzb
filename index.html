@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     :root {
@@ -22,6 +24,8 @@
       --text-muted: #7E8590;
       --border: #ECEEF2;
       --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
       --radius-sm: 10px;
       --radius-md: 16px;
       --radius-lg: 24px;
@@ -42,7 +46,7 @@
       background-color: var(--gray-bg);
       color: var(--text-main);
       min-height: 100vh;
-      padding-bottom: 100px;
+      padding-bottom: 90px;
       overflow-x: hidden;
       user-select: none;
     }
@@ -50,7 +54,7 @@
     /* HEADER */
     .header {
       background: #FFFFFF;
-      padding: 16px 20px 12px;
+      padding: 14px 20px 10px;
       position: sticky;
       top: 0;
       z-index: 50;
@@ -61,7 +65,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .brand-logo-wrap {
@@ -71,42 +75,47 @@
     }
 
     .brand-icon {
-      width: 42px;
-      height: 42px;
+      width: 40px;
+      height: 40px;
       background: linear-gradient(135deg, #FF4B2B 0%, #FF8F00 100%);
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
+      font-size: 20px;
       box-shadow: 0 4px 12px rgba(255,75,43,0.3);
     }
 
     .brand-info h1 {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 800;
       color: var(--dark);
       letter-spacing: -0.3px;
     }
 
     .brand-info p {
-      font-size: 12px;
+      font-size: 11.5px;
       color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 4px;
     }
 
-    .time-badge {
-      display: inline-flex;
+    .header-actions {
+      display: flex;
       align-items: center;
-      gap: 4px;
-      background: #E8F8F0;
-      color: var(--success);
-      padding: 4px 10px;
+      gap: 8px;
+    }
+
+    .btn-nav-tracking {
+      background: #F1F3F6;
+      border: none;
+      padding: 6px 12px;
       border-radius: 20px;
       font-size: 12px;
       font-weight: 700;
+      color: var(--dark);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
 
     /* SEARCH BAR */
@@ -117,12 +126,12 @@
 
     .search-input {
       width: 100%;
-      height: 44px;
+      height: 42px;
       background: #F1F3F6;
       border: 1.5px solid transparent;
       border-radius: var(--radius-sm);
-      padding: 0 16px 0 42px;
-      font-size: 14px;
+      padding: 0 16px 0 40px;
+      font-size: 13.5px;
       font-family: inherit;
       color: var(--text-main);
       outline: none;
@@ -140,7 +149,7 @@
       left: 14px;
       top: 50%;
       transform: translateY(-50%);
-      font-size: 16px;
+      font-size: 15px;
       color: var(--text-muted);
       pointer-events: none;
     }
@@ -150,87 +159,37 @@
       display: flex;
       gap: 8px;
       overflow-x: auto;
-      padding: 14px 20px 8px;
+      padding: 12px 20px 6px;
       scrollbar-width: none;
       -ms-overflow-style: none;
     }
 
-    .categories-bar::-webkit-scrollbar {
-      display: none;
-    }
+    .categories-bar::-webkit-scrollbar { display: none; }
 
     .category-chip {
       white-space: nowrap;
-      padding: 9px 16px;
+      padding: 8px 14px;
       background: #FFFFFF;
       border: 1px solid var(--border);
       border-radius: 30px;
-      font-size: 13.5px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--text-muted);
       cursor: pointer;
       transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
 
     .category-chip.active {
       background: var(--primary);
       color: #FFFFFF;
       border-color: var(--primary);
-      box-shadow: 0 4px 14px rgba(255, 75, 43, 0.28);
-    }
-
-    /* HERO BANNER */
-    .hero-banner {
-      margin: 12px 20px 6px;
-      border-radius: var(--radius-md);
-      background: linear-gradient(135deg, #FF416C 0%, #FF4B2B 100%);
-      padding: 18px 20px;
-      color: white;
-      position: relative;
-      overflow: hidden;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .hero-banner h2 {
-      font-size: 19px;
-      font-weight: 800;
-      margin-bottom: 4px;
-    }
-
-    .hero-banner p {
-      font-size: 13px;
-      opacity: 0.92;
-      max-width: 75%;
-    }
-
-    .hero-promo-badge {
-      display: inline-block;
-      margin-top: 10px;
-      background: rgba(255,255,255,0.25);
-      backdrop-filter: blur(8px);
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-    }
-
-    .hero-art {
-      position: absolute;
-      right: 10px;
-      bottom: -8px;
-      font-size: 58px;
-      opacity: 0.9;
-      transform: rotate(-10deg);
+      box-shadow: 0 4px 14px rgba(255, 75, 43, 0.25);
     }
 
     /* SECTION TITLE */
     .section-title {
-      padding: 16px 20px 8px;
-      font-size: 17px;
+      padding: 14px 20px 8px;
+      font-size: 16px;
       font-weight: 800;
       color: var(--dark);
       display: flex;
@@ -238,18 +197,14 @@
       align-items: center;
     }
 
-    .items-count {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
+    .items-count { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 
     /* PRODUCTS GRID */
     .products-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 14px;
-      padding: 8px 20px 24px;
+      gap: 12px;
+      padding: 6px 20px 24px;
     }
 
     .product-card {
@@ -260,17 +215,15 @@
       display: flex;
       flex-direction: column;
       position: relative;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
       border: 1px solid rgba(0,0,0,0.03);
+      transition: transform 0.15s ease;
     }
 
-    .product-card:active {
-      transform: scale(0.98);
-    }
+    .product-card:active { transform: scale(0.98); }
 
     .product-image-wrap {
       width: 100%;
-      height: 140px;
+      height: 135px;
       background: #F2F4F7;
       position: relative;
       overflow: hidden;
@@ -280,25 +233,23 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: transform 0.3s ease;
     }
 
     .badge-tag {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 8px;
+      left: 8px;
       background: rgba(29, 30, 32, 0.85);
       backdrop-filter: blur(6px);
       color: #FFFFFF;
-      padding: 3px 8px;
-      border-radius: 8px;
-      font-size: 10.5px;
+      padding: 3px 7px;
+      border-radius: 7px;
+      font-size: 10px;
       font-weight: 700;
-      letter-spacing: 0.2px;
     }
 
     .product-content {
-      padding: 12px;
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
       flex-grow: 1;
@@ -306,10 +257,10 @@
     }
 
     .product-name {
-      font-size: 14.5px;
+      font-size: 14px;
       font-weight: 700;
       color: var(--dark);
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       line-height: 1.25;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -318,10 +269,10 @@
     }
 
     .product-desc {
-      font-size: 11.5px;
+      font-size: 11px;
       color: var(--text-muted);
       line-height: 1.35;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -336,56 +287,37 @@
       margin-top: auto;
     }
 
-    .product-price {
-      font-size: 15px;
-      font-weight: 800;
-      color: var(--primary);
-    }
+    .product-price { font-size: 14.5px; font-weight: 800; color: var(--primary); }
 
-    .product-price span {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-
-    /* ADD BUTTONS & COUNTERS */
     .btn-add {
       background: var(--primary-light);
       color: var(--primary);
       border: none;
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 18px;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .btn-add:hover {
-      background: var(--primary);
-      color: white;
     }
 
     .qty-control {
       display: none;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       background: var(--primary);
-      border-radius: 10px;
+      border-radius: 9px;
       padding: 2px 4px;
     }
 
-    .qty-control.active {
-      display: flex;
-    }
+    .qty-control.active { display: flex; }
 
     .qty-btn {
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
       border: none;
       background: transparent;
       color: white;
@@ -398,22 +330,22 @@
     }
 
     .qty-val {
-      font-size: 13.5px;
+      font-size: 13px;
       font-weight: 800;
       color: white;
-      min-width: 16px;
+      min-width: 14px;
       text-align: center;
     }
 
     /* FLOATING BOTTOM CART BAR */
     .floating-cart-bar {
       position: fixed;
-      bottom: 20px;
-      left: 20px;
-      right: 20px;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
       background: linear-gradient(135deg, #FF4B2B 0%, #FF416C 100%);
       color: white;
-      padding: 14px 18px;
+      padding: 13px 18px;
       border-radius: var(--radius-lg);
       display: flex;
       align-items: center;
@@ -427,61 +359,41 @@
       pointer-events: none;
     }
 
-    .floating-cart-bar.visible {
-      transform: translateY(0);
-      opacity: 1;
-      pointer-events: auto;
-    }
+    .floating-cart-bar.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
 
-    .cart-summary-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .cart-summary-left { display: flex; align-items: center; gap: 10px; }
 
     .cart-count-badge {
       background: white;
       color: var(--primary);
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 14px;
+      font-size: 13.5px;
     }
 
-    .cart-summary-texts {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .cart-summary-title {
-      font-size: 12px;
-      opacity: 0.9;
-      font-weight: 600;
-    }
-
-    .cart-summary-price {
-      font-size: 16px;
-      font-weight: 800;
-    }
+    .cart-summary-texts { display: flex; flex-direction: column; }
+    .cart-summary-title { font-size: 11.5px; opacity: 0.9; font-weight: 600; }
+    .cart-summary-price { font-size: 15.5px; font-weight: 800; }
 
     .cart-checkout-prompt {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 700;
-      background: rgba(255,255,255,0.2);
-      padding: 8px 14px;
+      background: rgba(255,255,255,0.22);
+      padding: 7px 14px;
       border-radius: 20px;
       backdrop-filter: blur(4px);
     }
 
-    /* CART MODAL (BOTTOM DRAWER) */
-    .cart-modal-backdrop {
+    /* CHECKOUT MODAL (BOTTOM DRAWER) */
+    .modal-backdrop {
       position: fixed;
       top: 0;
       left: 0;
@@ -495,19 +407,16 @@
       transition: opacity 0.3s ease;
     }
 
-    .cart-modal-backdrop.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
+    .modal-backdrop.open { opacity: 1; pointer-events: auto; }
 
-    .cart-modal {
+    .checkout-modal {
       position: fixed;
       left: 0;
       right: 0;
       bottom: 0;
-      max-height: 85vh;
+      max-height: 90vh;
       background: #FFFFFF;
-      border-radius: 28px 28px 0 0;
+      border-radius: 26px 26px 0 0;
       z-index: 201;
       display: flex;
       flex-direction: column;
@@ -516,40 +425,33 @@
       box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
     }
 
-    .cart-modal.open {
-      transform: translateY(0);
-    }
+    .checkout-modal.open { transform: translateY(0); }
 
     .drawer-handle {
-      width: 44px;
+      width: 42px;
       height: 5px;
       background: #DFE2E8;
       border-radius: 4px;
-      margin: 12px auto 8px;
+      margin: 10px auto 6px;
     }
 
-    .cart-modal-header {
+    .modal-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 22px 14px;
+      padding: 8px 20px 12px;
       border-bottom: 1px solid var(--border);
     }
 
-    .cart-modal-header h3 {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--dark);
-    }
+    .modal-header h3 { font-size: 17px; font-weight: 800; color: var(--dark); }
 
     .btn-close-modal {
       background: #F1F3F6;
       border: none;
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 15px;
       color: var(--text-muted);
       cursor: pointer;
       display: flex;
@@ -557,101 +459,41 @@
       justify-content: center;
     }
 
-    .cart-modal-body {
+    .modal-body {
       overflow-y: auto;
-      padding: 16px 22px;
+      padding: 16px 20px 80px;
       flex-grow: 1;
     }
 
-    .cart-items-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .cart-item-row {
+    /* SECTION BOXES IN CHECKOUT */
+    .form-group-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--dark);
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding-bottom: 12px;
-      border-bottom: 1px dashed var(--border);
     }
 
-    .cart-item-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .cart-item-thumb {
-      width: 52px;
-      height: 52px;
-      border-radius: 12px;
-      object-fit: cover;
-      background: #F2F4F7;
-    }
-
-    .cart-item-name {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--dark);
-      margin-bottom: 2px;
-    }
-
-    .cart-item-unit-price {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .cart-item-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #F1F3F6;
-      padding: 4px 6px;
-      border-radius: 10px;
-    }
-
-    .cart-item-btn {
-      width: 26px;
-      height: 26px;
-      border: none;
-      background: white;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 800;
-      color: var(--dark);
-      cursor: pointer;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }
-
-    .cart-item-qty {
-      font-size: 13px;
-      font-weight: 800;
-      min-width: 18px;
-      text-align: center;
-    }
-
-    /* DELIVERY TYPE SWITCH */
     .delivery-options {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
 
     .delivery-option-btn {
       border: 1.5px solid var(--border);
       background: #FFFFFF;
-      padding: 12px;
+      padding: 10px;
       border-radius: var(--radius-sm);
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 4px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 700;
       color: var(--text-muted);
       transition: all 0.2s ease;
@@ -663,107 +505,319 @@
       color: var(--primary);
     }
 
-    .delivery-option-btn span:first-child {
-      font-size: 20px;
-    }
+    .delivery-option-btn span:first-child { font-size: 20px; }
 
-    /* PROMO BOX */
-    .promo-box {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 20px;
-    }
-
-    .promo-input {
-      flex-grow: 1;
-      height: 44px;
-      background: #F1F3F6;
-      border: 1.5px solid transparent;
+    /* LOCATION & MAP BOX */
+    .location-box {
+      background: #F8F9FB;
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      padding: 0 14px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .btn-geo-detect {
+      width: 100%;
+      background: #FFFFFF;
+      border: 1.5px solid #2481CC;
+      color: #2481CC;
+      padding: 9px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+
+    .map-preview-wrap {
+      width: 100%;
+      height: 140px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+    }
+
+    #miniMap { width: 100%; height: 100%; }
+
+    .address-display {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--dark);
+      line-height: 1.4;
+      padding: 6px 8px;
+      background: white;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .zone-warning {
+      color: var(--danger);
+      font-size: 11.5px;
+      font-weight: 700;
+      margin-top: 6px;
+      display: none;
+    }
+
+    /* EAT IN BOX */
+    .eat-in-box {
+      background: #F8F9FB;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .custom-input {
+      width: 100%;
+      height: 42px;
+      background: #FFFFFF;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 0 12px;
       font-size: 13.5px;
       font-family: inherit;
-      font-weight: 600;
-      text-transform: uppercase;
+      color: var(--dark);
       outline: none;
+      margin-bottom: 8px;
     }
 
-    .promo-input:focus {
-      background: white;
+    .custom-input:focus { border-color: var(--primary); }
+
+    /* PAYMENT METHOD OPTIONS */
+    .payment-methods-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .payment-method-card {
+      background: #FFFFFF;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+
+    .payment-method-card.selected {
       border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    .payment-method-card span:first-child { font-size: 20px; }
+
+    /* PROMO BOX */
+    .promo-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
     }
 
     .btn-apply-promo {
-      padding: 0 16px;
+      padding: 0 14px;
       background: var(--dark);
       color: white;
       border: none;
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       font-size: 13px;
       font-weight: 700;
       cursor: pointer;
-      transition: opacity 0.2s;
     }
 
-    /* ORDER BILL SUMMARY */
+    .promo-badge-success {
+      background: #E8F8F0;
+      color: var(--success);
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      display: none;
+    }
+
+    /* BILL SUMMARY */
     .bill-card {
       background: #F8F9FB;
       border-radius: var(--radius-sm);
-      padding: 14px 16px;
+      padding: 12px 14px;
       margin-bottom: 16px;
     }
 
     .bill-row {
       display: flex;
       justify-content: space-between;
-      font-size: 13px;
+      font-size: 12.5px;
       color: var(--text-muted);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
-    .bill-row.discount {
-      color: var(--success);
-      font-weight: 700;
-    }
+    .bill-row.discount { color: var(--success); font-weight: 700; }
 
     .bill-row.total {
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px dashed var(--border);
-      font-size: 16px;
+      font-size: 15.5px;
       font-weight: 800;
       color: var(--dark);
       margin-bottom: 0;
     }
 
-    .cart-modal-footer {
-      padding: 14px 22px 24px;
+    /* SUBMIT BUTTON */
+    .checkout-footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 20px 20px;
       border-top: 1px solid var(--border);
       background: #FFFFFF;
     }
 
     .btn-submit-order {
       width: 100%;
-      height: 52px;
+      height: 50px;
       background: linear-gradient(135deg, #FF4B2B 0%, #FF416C 100%);
       color: white;
       border: none;
       border-radius: var(--radius-md);
-      font-size: 16px;
+      font-size: 15.5px;
       font-weight: 800;
-      letter-spacing: 0.2px;
       cursor: pointer;
       box-shadow: var(--shadow-lg);
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      transition: transform 0.15s ease;
+      gap: 8px;
+      transition: all 0.2s ease;
     }
 
-    .btn-submit-order:active {
-      transform: scale(0.98);
+    .btn-submit-order:disabled {
+      background: #C4C8D0;
+      box-shadow: none;
+      cursor: not-allowed;
     }
+
+    /* PAYMENT POLLING MODAL */
+    .payment-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border-radius: 20px;
+      padding: 24px;
+      width: 85%;
+      max-width: 360px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+      z-index: 300;
+      text-align: center;
+      display: none;
+    }
+
+    .payment-modal.open { display: block; }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid #F1F3F6;
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 12px auto;
+    }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* ORDER TRACKING PAGE (MODAL) */
+    .tracking-page {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #F8F9FB;
+      z-index: 250;
+      overflow-y: auto;
+      padding: 16px 20px 40px;
+      display: none;
+    }
+
+    .tracking-page.open { display: block; }
+
+    .tracking-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .tracking-card {
+      background: white;
+      border-radius: var(--radius-md);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+    }
+
+    .stepper {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 14px;
+      position: relative;
+      padding-left: 24px;
+    }
+
+    .stepper::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: #E5E7EB;
+    }
+
+    .step-item {
+      position: relative;
+      font-size: 13px;
+      font-weight: 600;
+      color: #9CA3AF;
+    }
+
+    .step-item.active { color: var(--dark); font-weight: 800; }
+    .step-item.completed { color: var(--success); font-weight: 700; }
+
+    .step-dot {
+      position: absolute;
+      left: -24px;
+      top: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #E5E7EB;
+      border: 2px solid white;
+    }
+
+    .step-item.active .step-dot { background: var(--primary); box-shadow: 0 0 0 3px rgba(255,75,43,0.2); }
+    .step-item.completed .step-dot { background: var(--success); }
   </style>
 </head>
 <body>
@@ -775,11 +829,14 @@
         <div class="brand-icon">🍔</div>
         <div class="brand-info">
           <h1>FastFood Express</h1>
-          <p>🚀 Tez va issiq yetkazish • 25 daqiqa</p>
+          <p>🚀 Tezkor yetkazish • 25 daqiqa</p>
         </div>
       </div>
-      <div class="time-badge">
-        <span>● Ochiq</span>
+      <div class="header-actions">
+        <button class="btn-nav-tracking" onclick="openTrackingPage()">
+          <span>📦</span>
+          <span>Zakazlarim</span>
+        </button>
       </div>
     </div>
 
@@ -789,14 +846,6 @@
       <input type="text" id="searchInput" class="search-input" placeholder="Taom yoki ichimlik qidirish..." oninput="handleSearch(this.value)">
     </div>
   </header>
-
-  <!-- HERO BANNER -->
-  <div class="hero-banner">
-    <h2>Yangi Cheeseburger Combo! 💥</h2>
-    <p>Burger + Kartoshka fri + Muzdek kola atigi 49 000 so'm</p>
-    <div class="hero-promo-badge">PROMO: FAST10 (-10%)</div>
-    <div class="hero-art">🍟</div>
-  </div>
 
   <!-- CATEGORIES -->
   <div class="categories-bar" id="categoriesBar">
@@ -811,16 +860,14 @@
   <!-- SECTION TITLE -->
   <div class="section-title">
     <span id="categoryTitle">Barcha taomlar</span>
-    <span class="items-count" id="itemsCount">14 ta mahsulot</span>
+    <span class="items-count" id="itemsCount">Yuklanmoqda...</span>
   </div>
 
   <!-- PRODUCTS GRID -->
-  <div class="products-grid" id="productsGrid">
-    <!-- Dinamik JS orqali to'ldiriladi -->
-  </div>
+  <div class="products-grid" id="productsGrid"></div>
 
-  <!-- FLOATING CART BAR -->
-  <div class="floating-cart-bar" id="floatingCartBar" onclick="openCartModal()">
+  <!-- FLOATING BOTTOM CART BAR -->
+  <div class="floating-cart-bar" id="floatingCartBar" onclick="openCheckoutModal()">
     <div class="cart-summary-left">
       <div class="cart-count-badge" id="floatingCartCount">0</div>
       <div class="cart-summary-texts">
@@ -829,22 +876,23 @@
       </div>
     </div>
     <div class="cart-checkout-prompt">
-      <span>Buyurtma</span>
+      <span>Rasmiylashtirish</span>
       <span>→</span>
     </div>
   </div>
 
-  <!-- CART MODAL / BOTTOM DRAWER -->
-  <div class="cart-modal-backdrop" id="cartModalBackdrop" onclick="closeCartModal()"></div>
-  <div class="cart-modal" id="cartModal">
+  <!-- CHECKOUT MODAL (BOTTOM DRAWER) -->
+  <div class="modal-backdrop" id="checkoutBackdrop" onclick="closeCheckoutModal()"></div>
+  <div class="checkout-modal" id="checkoutModal">
     <div class="drawer-handle"></div>
-    <div class="cart-modal-header">
-      <h3>Savatdagi buyurtmalar</h3>
-      <button class="btn-close-modal" onclick="closeCartModal()">✕</button>
+    <div class="modal-header">
+      <h3>Buyurtmani rasmiylashtirish</h3>
+      <button class="btn-close-modal" onclick="closeCheckoutModal()">✕</button>
     </div>
 
-    <div class="cart-modal-body">
-      <!-- DELVERY TYPE CHOOSER -->
+    <div class="modal-body">
+      <!-- 1. YETKAZIB BERISH TURI SWITCHER -->
+      <div class="form-group-title">1. Xizmat turi</div>
       <div class="delivery-options">
         <div class="delivery-option-btn selected" id="optDelivery" onclick="selectDeliveryType('delivery')">
           <span>🛵</span>
@@ -856,203 +904,175 @@
         </div>
       </div>
 
-      <!-- CART ITEMS -->
-      <div class="cart-items-list" id="cartItemsList">
-        <!-- Dinamik elementlar -->
+      <!-- DELIVERY ADDRESS & GPS GEOLOCATION -->
+      <div class="location-box" id="deliveryLocationBox">
+        <button class="btn-geo-detect" onclick="detectGPSLocation()">
+          <span>📍</span>
+          <span>Joriy joylashuvimni aniqlash (GPS)</span>
+        </button>
+        <div class="map-preview-wrap">
+          <div id="miniMap"></div>
+        </div>
+        <div class="address-display" id="addressText">📍 Xaritadan joyni belgilang yoki tugmani bosing...</div>
+        <div class="zone-warning" id="zoneWarning">⚠️ Kechirasiz, bu manzil 15 km yetkazib berish zonasidan tashqarida!</div>
       </div>
 
-      <!-- PROMO INPUT -->
-      <div class="promo-box">
-        <input type="text" id="promoInput" class="promo-input" placeholder="Promokod (masalan: FAST10)">
-        <button class="btn-apply-promo" onclick="applyPromo()">Qo'llash</button>
+      <!-- EAT IN (STOL RAQAMI) -->
+      <div class="eat-in-box" id="eatInBox">
+        <div class="form-group-title">Filialni tanlang</div>
+        <select id="branchSelect" class="custom-input">
+          <option value="1">Amir Temur (Bosh filial)</option>
+          <option value="2">Chilonzor filiali</option>
+          <option value="3">Yunusobod filiali</option>
+        </select>
+        <div class="form-group-title">Stol raqami</div>
+        <input type="number" id="tableNumberInput" class="custom-input" placeholder="Masalan: 12" min="1">
       </div>
 
-      <!-- BILL SUMMARY -->
+      <!-- 2. TELEFON RAQAMI -->
+      <div class="form-group-title">2. Bog'lanish uchun telefon</div>
+      <input type="tel" id="phoneInput" class="custom-input" placeholder="+998 90 123 45 67">
+
+      <!-- 3. TO'LOV USULI -->
+      <div class="form-group-title">3. To'lov usuli</div>
+      <div class="payment-methods-grid">
+        <div class="payment-method-card selected" id="payCash" onclick="selectPaymentMethod('cash')">
+          <span>💵</span>
+          <span>Naqd</span>
+        </div>
+        <div class="payment-method-card" id="payClick" onclick="selectPaymentMethod('click')">
+          <span>🔵</span>
+          <span>Click</span>
+        </div>
+        <div class="payment-method-card" id="payPayme" onclick="selectPaymentMethod('payme')">
+          <span>🟢</span>
+          <span>Payme</span>
+        </div>
+      </div>
+
+      <!-- 4. PROMOKOD -->
+      <div class="form-group-title">4. Promokod</div>
+      <div class="promo-row">
+        <input type="text" id="promoInput" class="custom-input" style="margin-bottom:0;" placeholder="Masalan: FAST10">
+        <button class="btn-apply-promo" onclick="applyPromoCode()">Qo'llash</button>
+      </div>
+      <div class="promo-badge-success" id="promoSuccessBadge">✅ Promokod muvaffaqiyatli qo'llandi!</div>
+
+      <!-- 5. IZOH -->
+      <div class="form-group-title">5. Qo'shimcha izoh</div>
+      <input type="text" id="noteInput" class="custom-input" placeholder="Piyozsiz bo'lsin, eshik kodi: 123...">
+
+      <!-- 6. HISOB-KITOB (ORDER SUMMARY) -->
       <div class="bill-card">
         <div class="bill-row">
-          <span>Mahsulotlar summasi:</span>
+          <span>Mahsulotlar:</span>
           <span id="billSubtotal">0 so'm</span>
         </div>
-        <div class="bill-row discount" id="billDiscountRow" style="display: none;">
-          <span>Chegirma (<span id="discountPercent">0</span>%):</span>
+        <div class="bill-row discount" id="billDiscountRow" style="display:none;">
+          <span>Chegirma:</span>
           <span id="billDiscount">-0 so'm</span>
         </div>
-        <div class="bill-row">
-          <span>Xizmat turi:</span>
-          <span id="billDeliveryType">🛵 Yetkazib berish</span>
+        <div class="bill-row" id="billDeliveryRow">
+          <span>Yetkazish xizmati:</span>
+          <span id="billDeliveryFee">10,000 so'm</span>
         </div>
         <div class="bill-row total">
-          <span>To'lov summasi:</span>
+          <span>Yakuniy to'lov:</span>
           <span id="billGrandTotal">0 so'm</span>
         </div>
       </div>
     </div>
 
-    <!-- MODAL FOOTER -->
-    <div class="cart-modal-footer">
-      <button class="btn-submit-order" onclick="submitOrder()">
-        <span>Buyurtmani rasmiylashtirish</span>
-        <span>⚡️</span>
+    <!-- SUBMIT BUTTON -->
+    <div class="checkout-footer">
+      <button class="btn-submit-order" id="btnSubmitOrder" onclick="submitFinalOrder()">
+        <span>Buyurtma berish</span>
+        <span id="btnSubmitTotal">• 0 so'm</span>
       </button>
     </div>
   </div>
 
+  <!-- PAYMENT POLLING MODAL (CLICK / PAYME) -->
+  <div class="modal-backdrop" id="paymentBackdrop"></div>
+  <div class="payment-modal" id="paymentModal">
+    <div style="font-size: 38px; margin-bottom: 8px;">💳</div>
+    <h3 id="paymentTitle" style="font-size: 17px; font-weight: 800; color: var(--dark);">To'lov kutilmoqda...</h3>
+    <p id="paymentDesc" style="font-size: 13px; color: var(--text-muted); margin: 6px 0 14px;">Iltimos, ilovaga o'tib to'lovni tasdiqlang</p>
+    <div class="spinner" id="paymentSpinner"></div>
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+      <button id="btnOpenPaymentApp" class="btn-submit-order" style="height: 42px; font-size: 14px;" onclick="openPaymentLink()">
+        To'lov ilovasini ochish ↗️
+      </button>
+      <button class="btn-nav-tracking" style="justify-content: center; height: 38px;" onclick="simulatePaymentSuccess()">
+        ⚡️ To'lovni tasdiqlash (Test rejimi)
+      </button>
+    </div>
+  </div>
+
+  <!-- ORDER TRACKING PAGE -->
+  <div class="tracking-page" id="trackingPage">
+    <div class="tracking-header">
+      <h2 style="font-size: 19px; font-weight: 800;">📦 Buyurtmalarim</h2>
+      <button class="btn-close-modal" onclick="closeTrackingPage()">✕</button>
+    </div>
+    <div id="trackingList">
+      <div style="text-align: center; color: #888; padding: 40px 0;">Yuklanmoqda...</div>
+    </div>
+  </div>
+
   <script>
-    // Telegram Web App SDK
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
       tg.expand();
-      tg.enableClosingConfirmation();
       if (tg.setHeaderColor) tg.setHeaderColor('#FFFFFF');
-      if (tg.setBackgroundColor) tg.setBackgroundColor('#F8F9FA');
     }
 
-    // MAHSULOTLAR MA'LUMOTI (Yuqori sifatli rasmlar va tafsilotlar)
+    // MAHSULOTLAR RO'YXATI
     const PRODUCTS = [
-      {
-        id: 1,
-        category: "burgers",
-        name: "Cheeseburger Double Black",
-        price: 42000,
-        description: "2 qavat xushbo'y mol go'shti, erigan cheddar pishlog'i, maxsus sous va tuzlangan bodring",
-        image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
-        badge: "🔥 Hit"
-      },
-      {
-        id: 2,
-        category: "burgers",
-        name: "Chicken Crispy Burger",
-        price: 34000,
-        description: "Qarsildoq tovuq filesi, aysberg salati, yangi pomidor va yengil mayonez",
-        image: "https://images.unsplash.com/photo-1625813506062-0aeb1d7a094b?auto=format&fit=crop&w=600&q=80",
-        badge: "Yangi"
-      },
-      {
-        id: 3,
-        category: "burgers",
-        name: "Barbecue Bacon Burger",
-        price: 46000,
-        description: "Mol go'shti kotleti, qarsildoq bekon, dudlangan BBQ sousi va qovurilgan piyoz",
-        image: "https://images.unsplash.com/photo-1553979459-d2229ba7433b?auto=format&fit=crop&w=600&q=80",
-        badge: ""
-      },
-      {
-        id: 4,
-        category: "lavash",
-        name: "Mol go'shtli Lavash Standart",
-        price: 36000,
-        description: "Yumshoq xamir, mayin mol go'shti, pomidor, bodring, maxsus chipslar va tomat sousi",
-        image: "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=600&q=80",
-        badge: "🔥 Hit"
-      },
-      {
-        id: 5,
-        category: "lavash",
-        name: "Pishloqli Tovuq Lavash",
-        price: 38000,
-        description: "Tandirda pishgan tovuq go'shti, erigan motsarella pishlog'i, ko'katlar va sous",
-        image: "https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=600&q=80",
-        badge: ""
-      },
-      {
-        id: 6,
-        category: "lavash",
-        name: "Shaurma Mini (Doner)",
-        price: 28000,
-        description: "Pita nonida mol go'shti doneri, yangi sabzavotlar va sarimsoqli sous",
-        image: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=600&q=80",
-        badge: ""
-      },
-      {
-        id: 7,
-        category: "pizza",
-        name: "Pizza Pepperoni Maxi",
-        price: 68000,
-        description: "Italyancha ingichka xamir, ko'p miqdorda pepperoni kolbasasi va motsarella pishlog'i",
-        image: "https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=600&q=80",
-        badge: "🔥 Hit"
-      },
-      {
-        id: 8,
-        category: "pizza",
-        name: "Pizza 4 Pishloq",
-        price: 72000,
-        description: "Motsarella, gorgonzola, parmezan va cheddar pishloqlarining nozik uyg'unligi",
-        image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80",
-        badge: ""
-      },
-      {
-        id: 9,
-        category: "pizza",
-        name: "Pizza Kombi Go'shtli",
-        price: 75000,
-        description: "Mol go'shti, tovuq filesi, ovchi kolbasalari, shirin bulg'or qalampiri va zaytun",
-        image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=600&q=80",
-        badge: "To'yimli"
-      },
-      {
-        id: 10,
-        category: "snacks",
-        name: "Oltin Kartoshka Fri",
-        price: 16000,
-        description: "Tashqarisi qarsildoq, ichi mayin oltin rangli qovurilgan kartoshka fri",
-        image: "https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=600&q=80",
-        badge: "Mashhur"
-      },
-      {
-        id: 11,
-        category: "snacks",
-        name: "Tovuq Qanotchalari BBQ",
-        price: 32000,
-        description: "Maxsus marinadlangan va qizartirib pishirilgan 6 dona tovuq qanotchalari",
-        image: "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=600&q=80",
-        badge: "Achchiq"
-      },
-      {
-        id: 12,
-        category: "snacks",
-        name: "Pishloqli Naggets (8 dona)",
-        price: 26000,
-        description: "Motsarella pishlog'i bilan to'ldirilgan nozik tovuq naggetslari",
-        image: "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=600&q=80",
-        badge: ""
-      },
-      {
-        id: 13,
-        category: "drinks",
-        name: "Coca-Cola Original 0.5L",
-        price: 9000,
-        description: "Muzdek salqin va tetiklashtiruvchi klassik gazlangan ichimlik",
-        image: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80",
-        badge: ""
-      },
-      {
-        id: 14,
-        category: "drinks",
-        name: "Yalpizli Mojito 0.4L",
-        price: 18000,
-        description: "Laym, yangi yalpiz barglari va yaxna muzli tabiiy limonad",
-        image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80",
-        badge: "Yozgi"
-      }
+      { id: 1, category: "burgers", name: "Cheeseburger Double Black", price: 42000, description: "2 qavat mol go'shti, erigan cheddar, maxsus sous", image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600", badge: "🔥 Hit" },
+      { id: 2, category: "burgers", name: "Chicken Crispy Burger", price: 34000, description: "Qarsildoq tovuq filesi, aysberg salati, sous", image: "https://images.unsplash.com/photo-1625813506062-0aeb1d7a094b?w=600", badge: "Yangi" },
+      { id: 3, category: "burgers", name: "Barbecue Bacon Burger", price: 46000, description: "Mol go'shti kotleti, qarsildoq bekon, BBQ sous", image: "https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=600", badge: "" },
+      { id: 4, category: "lavash", name: "Mol go'shtli Lavash Standart", price: 36000, description: "Yumshoq xamir, mayin mol go'shti, sabzavotlar", image: "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=600", badge: "🔥 Hit" },
+      { id: 5, category: "lavash", name: "Pishloqli Tovuq Lavash", price: 38000, description: "Tandirda pishgan tovuq, motsarella pishlog'i", image: "https://images.unsplash.com/photo-1561651823-34feb02250e4?w=600", badge: "" },
+      { id: 6, category: "lavash", name: "Shaurma Mini (Doner)", price: 28000, description: "Pita nonida mol go'shti doneri, yangi sous", image: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=600", badge: "" },
+      { id: 7, category: "pizza", name: "Pizza Pepperoni Maxi", price: 68000, description: "Italyancha xamir, pepperoni va motsarella", image: "https://images.unsplash.com/photo-1628840042765-356cda07504e?w=600", badge: "🔥 Hit" },
+      { id: 8, category: "pizza", name: "Pizza 4 Pishloq", price: 72000, description: "Motsarella, gorgonzola, parmezan, cheddar", image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600", badge: "" },
+      { id: 9, category: "snacks", name: "Oltin Kartoshka Fri", price: 16000, description: "Qarsildoq, oltin rangli kartoshka fri", image: "https://images.unsplash.com/photo-1576107232684-1279f3908594?w=600", badge: "Mashhur" },
+      { id: 10, category: "snacks", name: "Tovuq Qanotchalari BBQ", price: 32000, description: "6 dona qizartirib pishirilgan tovuq qanotlari", image: "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=600", badge: "Achchiq" },
+      { id: 11, category: "drinks", name: "Coca-Cola Original 0.5L", price: 9000, description: "Muzdek salqin klassik ichimlik", image: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=600", badge: "" },
+      { id: 12, category: "drinks", name: "Yalpizli Mojito 0.4L", price: 18000, description: "Laym, yalpiz va yaxna muzli limonad", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600", badge: "Yozgi" }
     ];
 
-    // SAVAT HOLATI
-    let cart = {}; // { [productId]: count }
+    let cart = {};
     let currentCategory = 'all';
     let searchQuery = '';
+
+    // BUYURTMA RASMIYLASHTIRISH PARAMETRLARI
     let selectedDeliveryType = 'delivery'; // 'delivery' yoki 'eat_in'
-    let appliedPromo = null; // { code: 'FAST10', percent: 10 }
+    let selectedPaymentMethod = 'cash'; // 'cash', 'click', 'payme'
+    let currentLat = 41.311081;
+    let currentLon = 69.240562;
+    let selectedAddress = "Toshkent shahri, Amir Temur ko'chasi";
+    let calculatedDeliveryFee = 10000;
+    let isZoneValid = true;
+    let currentPromo = null; // { code, percent, amount }
+
+    let activeOrderId = null;
+    let activePaymentUrl = "";
+    let paymentPollingInterval = null;
+    let isSubmitting = false;
+
+    // LEAFLET MINI MAP
+    let miniMap = null;
+    let mapMarker = null;
 
     function formatPrice(num) {
-      return num.toLocaleString('uz-UZ') + " so'm";
+      return (num || 0).toLocaleString('uz-UZ') + " so'm";
     }
 
     function haptic(type = 'light') {
-      if (tg?.HapticFeedback) {
-        tg.HapticFeedback.impactOccurred(type);
-      }
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred(type);
     }
 
     // MAHSULOTLARNI RENDER QILISH
@@ -1069,17 +1089,6 @@
 
       document.getElementById('itemsCount').innerText = `${filtered.length} ta mahsulot`;
 
-      if (filtered.length === 0) {
-        grid.innerHTML = `
-          <div style="grid-column: span 2; text-align: center; padding: 40px 20px; color: #888;">
-            <div style="font-size: 40px; margin-bottom: 8px;">🍽</div>
-            <div style="font-weight: 700; font-size: 16px;">Mahsulot topilmadi</div>
-            <div style="font-size: 13px;">Qidiruv so'zini o'zgartirib ko'ring</div>
-          </div>
-        `;
-        return;
-      }
-
       filtered.forEach(p => {
         const qty = cart[p.id] || 0;
         const card = document.createElement('div');
@@ -1094,11 +1103,7 @@
             <div class="product-desc">${p.description}</div>
             <div class="product-bottom">
               <div class="product-price">${formatPrice(p.price)}</div>
-              
-              <button class="btn-add" id="btnAdd_${p.id}" style="${qty > 0 ? 'display:none;' : ''}" onclick="addToCart(${p.id})">
-                +
-              </button>
-
+              <button class="btn-add" id="btnAdd_${p.id}" style="${qty > 0 ? 'display:none;' : ''}" onclick="addToCart(${p.id})">+</button>
               <div class="qty-control ${qty > 0 ? 'active' : ''}" id="qtyCtrl_${p.id}">
                 <button class="qty-btn" onclick="decreaseCart(${p.id})">−</button>
                 <span class="qty-val" id="qtyVal_${p.id}">${qty}</span>
@@ -1111,31 +1116,25 @@
       });
     }
 
-    // SAVAT AMALLARI
     function addToCart(id) {
       haptic('light');
       cart[id] = (cart[id] || 0) + 1;
-      updateUI();
+      updateCartUI();
     }
 
     function decreaseCart(id) {
       haptic('light');
-      if (cart[id] > 1) {
-        cart[id]--;
-      } else {
-        delete cart[id];
-      }
-      updateUI();
+      if (cart[id] > 1) cart[id]--;
+      else delete cart[id];
+      updateCartUI();
     }
 
-    function updateUI() {
-      // Har bir mahsulot tugmasini yangilash
+    function updateCartUI() {
       PRODUCTS.forEach(p => {
         const qty = cart[p.id] || 0;
         const btnAdd = document.getElementById(`btnAdd_${p.id}`);
         const qtyCtrl = document.getElementById(`qtyCtrl_${p.id}`);
         const qtyVal = document.getElementById(`qtyVal_${p.id}`);
-
         if (btnAdd && qtyCtrl && qtyVal) {
           if (qty > 0) {
             btnAdd.style.display = 'none';
@@ -1148,105 +1147,34 @@
         }
       });
 
-      // Hisob-kitoblar
       let totalCount = 0;
       let subtotal = 0;
-
       Object.entries(cart).forEach(([id, qty]) => {
-        const product = PRODUCTS.find(p => p.id == id);
-        if (product) {
+        const p = PRODUCTS.find(item => item.id == id);
+        if (p) {
           totalCount += qty;
-          subtotal += (product.price * qty);
+          subtotal += (p.price * qty);
         }
       });
 
-      // Floating bar yangilash
-      const floatingBar = document.getElementById('floatingCartBar');
+      const bar = document.getElementById('floatingCartBar');
       if (totalCount > 0) {
-        floatingBar.classList.add('visible');
+        bar.classList.add('visible');
         document.getElementById('floatingCartCount').innerText = totalCount;
         document.getElementById('floatingCartPrice').innerText = formatPrice(subtotal);
       } else {
-        floatingBar.classList.remove('visible');
-        closeCartModal();
+        bar.classList.remove('visible');
+        closeCheckoutModal();
       }
 
-      // Savat modali ichini yangilash
-      renderCartModalItems(subtotal);
+      calculateFinalBill();
     }
 
-    function renderCartModalItems(subtotal) {
-      const container = document.getElementById('cartItemsList');
-      container.innerHTML = '';
-
-      Object.entries(cart).forEach(([id, qty]) => {
-        const p = PRODUCTS.find(item => item.id == id);
-        if (!p) return;
-
-        const row = document.createElement('div');
-        row.className = 'cart-item-row';
-        row.innerHTML = `
-          <div class="cart-item-info">
-            <img src="${p.image}" class="cart-item-thumb">
-            <div>
-              <div class="cart-item-name">${p.name}</div>
-              <div class="cart-item-unit-price">${formatPrice(p.price)}</div>
-            </div>
-          </div>
-          <div class="cart-item-controls">
-            <button class="cart-item-btn" onclick="decreaseCart(${p.id})">−</button>
-            <span class="cart-item-qty">${qty}</span>
-            <button class="cart-item-btn" onclick="addToCart(${p.id})">+</button>
-          </div>
-        `;
-        container.appendChild(row);
-      });
-
-      // Chegirma va jami summa
-      let discountAmount = 0;
-      if (appliedPromo) {
-        discountAmount = Math.round((subtotal * appliedPromo.percent) / 100);
-        document.getElementById('billDiscountRow').style.display = 'flex';
-        document.getElementById('discountPercent').innerText = appliedPromo.percent;
-        document.getElementById('billDiscount').innerText = `-${formatPrice(discountAmount)}`;
-      } else {
-        document.getElementById('billDiscountRow').style.display = 'none';
-      }
-
-      const grandTotal = Math.max(0, subtotal - discountAmount);
-
-      document.getElementById('billSubtotal').innerText = formatPrice(subtotal);
-      document.getElementById('billGrandTotal').innerText = formatPrice(grandTotal);
-    }
-
-    // MODAL OCHISH / YOPISH
-    function openCartModal() {
-      haptic('medium');
-      document.getElementById('cartModalBackdrop').classList.add('open');
-      document.getElementById('cartModal').classList.add('open');
-    }
-
-    function closeCartModal() {
-      document.getElementById('cartModalBackdrop').classList.remove('open');
-      document.getElementById('cartModal').classList.remove('open');
-    }
-
-    // FILTR VA QIDIRUV
     function filterCategory(cat, el) {
       haptic('light');
       currentCategory = cat;
       document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
       el.classList.add('active');
-
-      const catNames = {
-        'all': 'Barcha taomlar',
-        'burgers': 'Burgerlar & Sendvichlar',
-        'lavash': 'Lavash & Shaurma',
-        'pizza': 'Issiq Pizzalar',
-        'snacks': 'Qarsildoq Gazaklar',
-        'drinks': 'Ichimliklar & Limonadlar'
-      };
-      document.getElementById('categoryTitle').innerText = catNames[cat] || 'Menyu';
       renderProducts();
     }
 
@@ -1255,64 +1183,248 @@
       renderProducts();
     }
 
-    // YETKAZIB BERISH TURI
+    // CHECKOUT MODALINI OCHISH
+    function openCheckoutModal() {
+      haptic('medium');
+      document.getElementById('checkoutBackdrop').classList.add('open');
+      document.getElementById('checkoutModal').classList.add('open');
+
+      // Autofill telefon (agar telegramda bo'lsa)
+      if (tg?.initDataUnsafe?.user) {
+        const u = tg.initDataUnsafe.user;
+        if (!document.getElementById('phoneInput').value && u.phone_number) {
+          document.getElementById('phoneInput').value = u.phone_number;
+        }
+      }
+
+      setTimeout(() => {
+        initMiniMap();
+      }, 200);
+
+      calculateFinalBill();
+    }
+
+    function closeCheckoutModal() {
+      document.getElementById('checkoutBackdrop').classList.remove('open');
+      document.getElementById('checkoutModal').classList.remove('open');
+    }
+
+    // XARITA INISTSIALIZATSIYASI
+    function initMiniMap() {
+      if (!miniMap) {
+        miniMap = L.map('miniMap', { zoomControl: false }).setView([currentLat, currentLon], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(miniMap);
+        mapMarker = L.marker([currentLat, currentLon], { draggable: true }).addTo(miniMap);
+
+        mapMarker.on('dragend', function() {
+          const pos = mapMarker.getLatLng();
+          currentLat = pos.lat;
+          currentLon = pos.lng;
+          calculateDeliveryFromServer(currentLat, currentLon);
+        });
+
+        miniMap.on('click', function(e) {
+          mapMarker.setLatLng(e.latlng);
+          currentLat = e.latlng.lat;
+          currentLon = e.latlng.lng;
+          calculateDeliveryFromServer(currentLat, currentLon);
+        });
+      } else {
+        miniMap.invalidateSize();
+      }
+    }
+
+    // GPS GEOLOKATSIYANI ANIQLASH
+    function detectGPSLocation() {
+      haptic('medium');
+      const addrEl = document.getElementById('addressText');
+      addrEl.innerText = "📍 GPS joylashuvingiz aniqlanmoqda...";
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            currentLat = pos.coords.latitude;
+            currentLon = pos.coords.longitude;
+            if (miniMap && mapMarker) {
+              miniMap.setView([currentLat, currentLon], 15);
+              mapMarker.setLatLng([currentLat, currentLon]);
+            }
+            calculateDeliveryFromServer(currentLat, currentLon);
+          },
+          (err) => {
+            addrEl.innerText = "⚠️ GPS ruxsati berilmadi. Xaritadan nuqtani belgilang.";
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      } else {
+        addrEl.innerText = "Brauzeringizda GPS qo'llab-quvvatlanmaydi.";
+      }
+    }
+
+    // BACKEND ORQALI MASOFA VA NARXNI HISOBLASH
+    async function calculateDeliveryFromServer(lat, lon) {
+      const addrEl = document.getElementById('addressText');
+      const warnEl = document.getElementById('zoneWarning');
+      addrEl.innerText = "Hisoblanmoqda...";
+      warnEl.style.display = 'none';
+
+      try {
+        const resp = await fetch('/api/order/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lon })
+        });
+        const res = await resp.json();
+
+        if (res.ok) {
+          isZoneValid = true;
+          selectedAddress = res.address;
+          calculatedDeliveryFee = res.delivery_fee;
+          addrEl.innerText = `📍 ${res.address} (${res.distance_km} km • ${res.branch_name})`;
+        } else {
+          isZoneValid = false;
+          warnEl.style.display = 'block';
+          warnEl.innerText = `⚠️ ${res.error}`;
+          addrEl.innerText = "Yetkazib berish zonasi cheklangan";
+        }
+      } catch (e) {
+        selectedAddress = "Belgilangan joylashuv";
+        addrEl.innerText = selectedAddress;
+      }
+
+      calculateFinalBill();
+    }
+
+    // YETKAZIB BERISH TURINI TANLASH
     function selectDeliveryType(type) {
       haptic('light');
       selectedDeliveryType = type;
       if (type === 'delivery') {
         document.getElementById('optDelivery').classList.add('selected');
         document.getElementById('optEatIn').classList.remove('selected');
-        document.getElementById('billDeliveryType').innerText = '🛵 Yetkazib berish';
+        document.getElementById('deliveryLocationBox').style.display = 'block';
+        document.getElementById('eatInBox').style.display = 'none';
+        document.getElementById('billDeliveryRow').style.display = 'flex';
       } else {
         document.getElementById('optEatIn').classList.add('selected');
         document.getElementById('optDelivery').classList.remove('selected');
-        document.getElementById('billDeliveryType').innerText = '🍽 Shu yerda (Zalda)';
+        document.getElementById('deliveryLocationBox').style.display = 'none';
+        document.getElementById('eatInBox').style.display = 'block';
+        document.getElementById('billDeliveryRow').style.display = 'none';
       }
+      calculateFinalBill();
     }
 
-    // PROMOKOD QO'LLASH
-    function applyPromo() {
-      const code = document.getElementById('promoInput').value.trim().toUpperCase();
+    // TO'LOV USULINI TANLASH
+    function selectPaymentMethod(method) {
+      haptic('light');
+      selectedPaymentMethod = method;
+      document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('selected'));
+      if (method === 'cash') document.getElementById('payCash').classList.add('selected');
+      if (method === 'click') document.getElementById('payClick').classList.add('selected');
+      if (method === 'payme') document.getElementById('payPayme').classList.add('selected');
+    }
+
+    // PROMOKODNI BACKEND ORQALI TEKSHIRISH (/api/promo)
+    async function applyPromoCode() {
+      const codeInput = document.getElementById('promoInput');
+      const code = codeInput.value.trim().toUpperCase();
       if (!code) return;
 
-      if (code === 'FAST10') {
-        appliedPromo = { code: 'FAST10', percent: 10 };
-        haptic('medium');
-        alert("🎉 Tabriklaymiz! 10% chegirma taqdim etildi.");
-      } else if (code === 'MAZZALI20') {
-        appliedPromo = { code: 'MAZZALI20', percent: 20 };
-        haptic('medium');
-        alert("🎉 Ajoyib! 20% maxsus chegirma taqdim etildi.");
-      } else {
-        haptic('heavy');
-        alert("⚠️ Bunday promokod topilmadi!");
-        appliedPromo = null;
+      let subtotal = 0;
+      Object.entries(cart).forEach(([id, qty]) => {
+        const p = PRODUCTS.find(item => item.id == id);
+        if (p) subtotal += (p.price * qty);
+      });
+
+      try {
+        const resp = await fetch('/api/promo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, amount: subtotal })
+        });
+        const res = await resp.json();
+
+        if (res.ok) {
+          haptic('medium');
+          currentPromo = {
+            code: res.code,
+            percent: res.discount_percent,
+            amount: res.discount_amount
+          };
+          const badge = document.getElementById('promoSuccessBadge');
+          badge.style.display = 'block';
+          badge.innerText = `✅ ${res.code}: ${res.discount_percent}% chegirma qo'llandi (-${formatPrice(res.discount_amount)})`;
+        } else {
+          haptic('heavy');
+          alert(`⚠️ ${res.error}`);
+          currentPromo = null;
+          document.getElementById('promoSuccessBadge').style.display = 'none';
+        }
+      } catch (err) {
+        alert("Promokodni tekshirishda xatolik yuz berdi.");
       }
-      updateUI();
+
+      calculateFinalBill();
     }
 
-    // BUYURTMANI TELEGRAM BOTGA YUBORISH
-    async function submitOrder() {
-      haptic('heavy');
+    // YAKUNIY HISOBLASH
+    function calculateFinalBill() {
+      let subtotal = 0;
+      Object.entries(cart).forEach(([id, qty]) => {
+        const p = PRODUCTS.find(item => item.id == id);
+        if (p) subtotal += (p.price * qty);
+      });
 
-      const submitBtn = document.querySelector('.btn-submit-order');
-      const originalText = submitBtn ? submitBtn.innerHTML : '';
+      let discount = 0;
+      if (currentPromo) {
+        discount = Math.round((subtotal * currentPromo.percent) / 100);
+        document.getElementById('billDiscountRow').style.display = 'flex';
+        document.getElementById('billDiscount').innerText = `-${formatPrice(discount)}`;
+      } else {
+        document.getElementById('billDiscountRow').style.display = 'none';
+      }
+
+      const fee = (selectedDeliveryType === 'delivery') ? calculatedDeliveryFee : 0;
+      const grandTotal = Math.max(0, subtotal - discount) + fee;
+
+      document.getElementById('billSubtotal').innerText = formatPrice(subtotal);
+      document.getElementById('billDeliveryFee').innerText = formatPrice(fee);
+      document.getElementById('billGrandTotal').innerText = formatPrice(grandTotal);
+      document.getElementById('btnSubmitTotal').innerText = `• ${formatPrice(grandTotal)}`;
+    }
+
+    // BUYURTMANI RASMIYLASHTIRISH VA XAVFSIZLIK (POST /api/order/create)
+    async function submitFinalOrder() {
+      if (isSubmitting) return;
+
+      const phone = document.getElementById('phoneInput').value.trim();
+      if (!phone || phone.length < 9) {
+        haptic('heavy');
+        alert("⚠️ Iltimos, bog'lanish uchun telefon raqamingizni kiriting (+998901234567)!");
+        document.getElementById('phoneInput').focus();
+        return;
+      }
+
+      if (selectedDeliveryType === 'delivery') {
+        if (!isZoneValid) {
+          alert("⚠️ Belgilangan manzil 15 km yetkazib berish zonasidan tashqarida!");
+          return;
+        }
+      } else {
+        const tableNum = document.getElementById('tableNumberInput').value.trim();
+        if (!tableNum || parseInt(tableNum) <= 0) {
+          alert("⚠️ Iltimos, o'tirgan stolingiz raqamini kiriting!");
+          document.getElementById('tableNumberInput').focus();
+          return;
+        }
+      }
 
       const items = [];
-      let subtotal = 0;
-
       Object.entries(cart).forEach(([id, qty]) => {
-        const product = PRODUCTS.find(p => p.id == id);
-        if (product) {
-          items.push({
-            id: product.id,
-            product_id: product.id,
-            name: product.name,
-            price: product.price,
-            quantity: qty,
-            total_price: product.price * qty
-          });
-          subtotal += (product.price * qty);
+        const p = PRODUCTS.find(item => item.id == id);
+        if (p) {
+          items.push({ id: p.id, product_id: p.id, name: p.name, price: p.price, quantity: qty });
         }
       });
 
@@ -1321,87 +1433,203 @@
         return;
       }
 
-      // Yetkazib berish uchun minimal summa tekshiruvi (30 000 so'm)
-      if (selectedDeliveryType === 'delivery' && subtotal < 30000) {
-        alert("⚠️ Yetkazib berish uchun minimal buyurtma summasi 30 000 so'm!");
-        return;
-      }
+      // DUBLIKAT / SPAM HIMOYASI
+      isSubmitting = true;
+      const submitBtn = document.getElementById('btnSubmitOrder');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span>Yuborilmoqda...</span> ⏳`;
 
-      let discountAmount = 0;
-      if (appliedPromo) {
-        discountAmount = Math.round((subtotal * appliedPromo.percent) / 100);
-      }
-
-      const orderPayload = {
-        action: "web_app_checkout",
+      const payload = {
+        user_id: tg?.initDataUnsafe?.user?.id || 1233117662,
+        user: tg?.initDataUnsafe?.user,
+        phone: phone,
         delivery_type: selectedDeliveryType,
-        items: items,
-        items_total: subtotal,
-        promo_code: appliedPromo ? appliedPromo.code : null,
-        discount_amount: discountAmount,
-        final_total: subtotal - discountAmount,
-        user_id: tg?.initDataUnsafe?.user?.id,
-        user: tg?.initDataUnsafe?.user
+        table_number: (selectedDeliveryType === 'eat_in') ? parseInt(document.getElementById('tableNumberInput').value) : null,
+        branch_id: (selectedDeliveryType === 'eat_in') ? parseInt(document.getElementById('branchSelect').value) : null,
+        address: selectedAddress,
+        lat: currentLat,
+        lon: currentLon,
+        payment_method: selectedPaymentMethod,
+        promo_code: currentPromo ? currentPromo.code : null,
+        note: document.getElementById('noteInput').value.trim(),
+        items: items
       };
 
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = `<span>Buyurtma yuborilmoqda...</span> ⏳`;
-      }
-
-      // 1. Backend REST API orqali yuborish (Barcha usulda: Menu Button, Inline va Keyboardda 100% ishlaydi)
-      let apiSuccess = false;
       try {
-        const response = await fetch('/api/order', {
+        const resp = await fetch('/api/order/create', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(orderPayload)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
+        const res = await resp.json();
 
-        const resData = await response.json();
-        if (resData.ok) {
-          apiSuccess = true;
-        } else if (resData.error === 'closed') {
-          alert("⚠️ Hozir bizning ish vaqtimiz emas (09:00 - 23:00)!");
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
+        if (res.ok) {
+          haptic('medium');
+          activeOrderId = res.order_id;
+          cart = {};
+          updateCartUI();
+          closeCheckoutModal();
+
+          if (res.payment_status === 'cash') {
+            // NAQD: Darhol buyurtmalarim bo'limiga o'tkazish
+            openTrackingPage();
+          } else {
+            // ONLAYN (CLICK / PAYME): To'lov kutish modalini ochish va Polling boshlash
+            activePaymentUrl = res.payment_url;
+            openPaymentModal(res.order_id, selectedPaymentMethod, res.final_total);
           }
-          return;
+        } else {
+          haptic('heavy');
+          alert(`⚠️ Xatolik: ${res.error}`);
         }
       } catch (err) {
-        console.warn("Backend API fetch xatosi:", err);
+        alert("Server bilan bog'lanishda xatolik yuz berdi!");
+      } finally {
+        isSubmitting = false;
+        submitBtn.disabled = false;
+        calculateFinalBill();
+      }
+    }
+
+    // CLICK & PAYME TO'LOV KUTISH VA POLLING (2.5s)
+    function openPaymentModal(orderId, method, total) {
+      document.getElementById('paymentBackdrop').classList.add('open');
+      document.getElementById('paymentModal').classList.add('open');
+      document.getElementById('paymentTitle').innerText = `${method.toUpperCase()} orqali to'lov`;
+      document.getElementById('paymentDesc').innerText = `Buyurtma #${orderId} • To'lov summasi: ${formatPrice(total)}`;
+
+      // Avtomatik to'lov ilovasini ochish
+      if (activePaymentUrl && tg?.openLink) {
+        try { tg.openLink(activePaymentUrl); } catch(e){}
       }
 
-      // 2. Fallback: Telegram sendData (agar KeyboardButton orqali ochilgan bo'lsa)
-      if (!apiSuccess && tg) {
-        try {
-          tg.sendData(JSON.stringify(orderPayload));
-          apiSuccess = true;
-        } catch (e) {
-          console.warn("Telegram sendData xatosi:", e);
-        }
-      }
+      // 2.5 soniyalik Polling mexanizmi
+      if (paymentPollingInterval) clearInterval(paymentPollingInterval);
+      paymentPollingInterval = setInterval(() => {
+        checkPaymentStatus(orderId);
+      }, 2500);
+    }
 
-      // Agar muvaffaqiyatli bo'lsa Web App ni yopish
-      if (tg && apiSuccess) {
-        tg.close();
-      } else if (!tg) {
-        alert("Buyurtma qabul qilindi!\nJami: " + formatPrice(orderPayload.final_total));
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalText;
-        }
-      } else {
-        // Agar ikkalasi ham xato bo'lsa
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalText;
-        }
-        alert("Xatolik yuz berdi. Iltimos qaytadan urinib ko'ring yoki botga qayting.");
+    function openPaymentLink() {
+      if (activePaymentUrl) {
+        if (tg?.openLink) tg.openLink(activePaymentUrl);
+        else window.open(activePaymentUrl, '_blank');
       }
+    }
+
+    async function checkPaymentStatus(orderId) {
+      try {
+        const resp = await fetch(`/api/order/payment-status?order_id=${orderId}`);
+        const res = await resp.json();
+        if (res.ok && res.payment_status === 'paid') {
+          clearInterval(paymentPollingInterval);
+          haptic('heavy');
+          document.getElementById('paymentSpinner').style.display = 'none';
+          document.getElementById('paymentTitle').innerText = "✅ To'lov qabul qilindi!";
+          document.getElementById('paymentTitle').style.color = "var(--success)";
+          document.getElementById('paymentDesc').innerText = "Buyurtmangiz oshxonaga qabul qilindi!";
+
+          setTimeout(() => {
+            closePaymentModal();
+            openTrackingPage();
+          }, 1500);
+        }
+      } catch(e){}
+    }
+
+    async function simulatePaymentSuccess() {
+      if (!activeOrderId) return;
+      try {
+        const resp = await fetch('/api/order/pay-simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: activeOrderId })
+        });
+        const res = await resp.json();
+        if (res.ok) {
+          checkPaymentStatus(activeOrderId);
+        }
+      } catch(e){}
+    }
+
+    function closePaymentModal() {
+      if (paymentPollingInterval) clearInterval(paymentPollingInterval);
+      document.getElementById('paymentBackdrop').classList.remove('open');
+      document.getElementById('paymentModal').classList.remove('open');
+    }
+
+    // ORDER TRACKING (BUYURTMALARIM) BO'LIMI
+    async function openTrackingPage() {
+      haptic('light');
+      document.getElementById('trackingPage').classList.add('open');
+      const listEl = document.getElementById('trackingList');
+      listEl.innerHTML = `<div style="text-align: center; color: #888; padding: 40px 0;">Yuklanmoqda...</div>`;
+
+      const userId = tg?.initDataUnsafe?.user?.id || 1233117662;
+      try {
+        const resp = await fetch(`/api/user/orders?user_id=${userId}`);
+        const res = await resp.json();
+
+        if (res.ok && res.orders && res.orders.length > 0) {
+          listEl.innerHTML = '';
+          res.orders.forEach(o => {
+            const card = document.createElement('div');
+            card.className = 'tracking-card';
+
+            const status = o.status || 'new';
+            const isCompleted = (status === 'completed');
+            const isDelivering = (status === 'delivering');
+            const isPreparing = (status === 'preparing');
+            const isPending = (status === 'new' || status === 'pending');
+
+            let itemsTxt = (o.items || []).map(i => `${i.product_name} x ${i.quantity}`).join(', ');
+
+            card.innerHTML = `
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 800; font-size: 15px;">Buyurtma #${o.id}</span>
+                <span style="font-size: 12px; font-weight: 700; color: var(--primary);">${formatPrice(o.final_total)}</span>
+              </div>
+              <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${o.address}</div>
+              <div style="font-size: 11.5px; color: #888; margin-bottom: 12px;">${itemsTxt}</div>
+
+              <!-- PROGRESS STEPPER -->
+              <div class="stepper">
+                <div class="step-item ${isPending || isPreparing || isDelivering || isCompleted ? 'completed' : ''}">
+                  <div class="step-dot"></div>
+                  Kafeda tasdiqlanishi kutilmoqda
+                </div>
+                <div class="step-item ${isPreparing ? 'active' : ''} ${isDelivering || isCompleted ? 'completed' : ''}">
+                  <div class="step-dot"></div>
+                  Oshxonada tayyorlanmoqda 👨‍🍳
+                </div>
+                <div class="step-item ${isDelivering ? 'active' : ''} ${isCompleted ? 'completed' : ''}">
+                  <div class="step-dot"></div>
+                  Kuryer yo'lga chiqdi 🛵
+                </div>
+                <div class="step-item ${isCompleted ? 'completed' : ''}">
+                  <div class="step-dot"></div>
+                  Yetkazildi ✅
+                </div>
+              </div>
+            `;
+            listEl.appendChild(card);
+          });
+        } else {
+          listEl.innerHTML = `
+            <div style="text-align: center; color: #888; padding: 60px 20px;">
+              <div style="font-size: 42px; margin-bottom: 8px;">📦</div>
+              <div style="font-weight: 700; font-size: 16px;">Sizda hozircha buyurtmalar yo'q</div>
+              <div style="font-size: 13px; margin-top: 4px;">Menyudan taom tanlang va buyurtma bering!</div>
+            </div>
+          `;
+        }
+      } catch (e) {
+        listEl.innerHTML = `<div style="text-align: center; color: red; padding: 30px;">Yuklashda xatolik yuz berdi.</div>`;
+      }
+    }
+
+    function closeTrackingPage() {
+      document.getElementById('trackingPage').classList.remove('open');
     }
 
     // Boshlang'ich yuklash
@@ -1409,4 +1637,3 @@
   </script>
 </body>
 </html>
-

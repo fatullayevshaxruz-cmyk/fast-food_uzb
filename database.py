@@ -229,10 +229,17 @@ async def init_db():
                 delivery_fee INTEGER DEFAULT 0,
                 final_total INTEGER NOT NULL,
                 payment_method TEXT DEFAULT 'cash',
+                payment_status TEXT DEFAULT 'unpaid',
                 status TEXT DEFAULT 'new',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+
+        # Eski bazaga ustun qo'shish (agar mavjud bo'lmasa)
+        try:
+            await db.execute("ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'unpaid';")
+        except Exception:
+            pass
 
         # Buyurtma mahsulotlari jadvali
         await db.execute("""
@@ -464,7 +471,8 @@ async def create_order(
     delivery_fee: int,
     final_total: int,
     payment_method: str,
-    items: List[Dict[str, Any]]
+    items: List[Dict[str, Any]],
+    payment_status: str = "unpaid"
 ) -> int:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute("BEGIN TRANSACTION;")
@@ -473,13 +481,13 @@ async def create_order(
                 user_id, delivery_type, table_number, address, lat, lon,
                 branch_id, branch_name, distance_km, phone, note,
                 promo_code, discount_amount, items_total, delivery_fee,
-                final_total, payment_method, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')
+                final_total, payment_method, payment_status, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')
         """, (
             user_id, delivery_type, table_number, address, lat, lon,
             branch_id, branch_name, distance_km, phone, note or "",
             promo_code or "", discount_amount, items_total, delivery_fee,
-            final_total, payment_method
+            final_total, payment_method, payment_status
         ))
         order_id = cursor.lastrowid
 
@@ -498,6 +506,48 @@ async def create_order(
 
         await db.commit()
         return order_id
+
+
+async def mark_order_paid(order_id: int) -> bool:
+    """Buyurtma to'lovini 'paid' deb belgilaydi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute(
+            "UPDATE orders SET payment_status = 'paid', status = 'preparing' WHERE id = ?",
+            (order_id,)
+        )
+        await db.commit()
+        return cursor.rowcount > 0
+
+
+async def get_order_payment_status(order_id: int) -> Optional[Dict[str, Any]]:
+    """Buyurtmaning to'lov holatini qaytaradi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT id, status, payment_status, final_total FROM orders WHERE id = ?", (order_id,)) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+
+async def get_user_orders(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+    """Foydalanuvchining so'nggi buyurtmalari (Order Tracking uchun)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        query = """
+            SELECT * FROM orders
+            WHERE user_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+        """
+        async with db.execute(query, (user_id, limit)) as cursor:
+            orders = await cursor.fetchall()
+            result = []
+            for o in orders:
+                od = dict(o)
+                async with db.execute("SELECT product_name, quantity, total_price FROM order_items WHERE order_id = ?", (od["id"],)) as ic:
+                    items = await ic.fetchall()
+                    od["items"] = [dict(i) for i in items]
+                result.append(od)
+            return result
 
 
 # ==========================================

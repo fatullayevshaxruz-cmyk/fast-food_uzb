@@ -21,17 +21,34 @@ from database import (
     get_cart_items,
     set_cart_items,
     add_to_cart,
-    clear_cart
+    clear_cart,
+    create_order,
+    check_promo_code,
+    mark_promo_used,
+    get_active_branches,
+    get_product_by_id,
+    get_order_by_id,
+    mark_order_paid,
+    get_order_payment_status,
+    get_user_orders
 )
 from handlers.order import (
     register_order_handlers,
     OrderStates,
     is_working_hours,
-    get_user_lang
+    get_user_lang,
+    clean_phone_number
 )
+from utils.geo import (
+    is_within_uzbekistan,
+    find_nearest_branch,
+    calculate_delivery_fee,
+    reverse_geocode
+)
+from utils.notifications import notify_admins_new_order
 from handlers.admin import register_admin_handlers
 from keyboards.order_kb import get_cancel_reply_kb, get_location_reply_kb
-from config import WORKING_HOURS_START, WORKING_HOURS_END
+from config import WORKING_HOURS_START, WORKING_HOURS_END, MAX_DELIVERY_RADIUS_KM
 from utils.i18n import get_text
 
 # Logging
@@ -50,10 +67,16 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 
-# ---------------- WEB APP SERVER (STATIC FILES & API) ----------------
+# ---------------- WEB APP SERVER (STATIC FILES & RICH REST API) ----------------
 async def start_web_server():
-    """Web App statik sahifalari va buyurtma API ni beruvchi aiohttp veb-server."""
+    """Web App statik sahifalari va to'liq Checkout REST API ni beruvchi aiohttp veb-server."""
     app = web.Application()
+
+    CORS_HEADERS = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    }
 
     async def index_handler(request):
         index_file = STATIC_DIR / "index.html"
@@ -63,113 +86,364 @@ async def start_web_server():
         map_file = STATIC_DIR / "map.html"
         return web.FileResponse(map_file)
 
-    async def api_order_handler(request):
-        """Web App orqali yuborilgan buyurtmani qabul qilish va FSM ni faollashtirish."""
+    async def options_handler(request):
+        return web.Response(headers=CORS_HEADERS)
+
+    # 1. FILIALLAR RO'YXATI
+    async def api_branches_handler(request):
+        branches = await get_active_branches()
+        return web.json_response({"ok": True, "branches": branches}, headers=CORS_HEADERS)
+
+    # 2. PROMOKODNI TEKSHIRISH
+    async def api_promo_check_handler(request):
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"ok": False, "error": "Invalid JSON"}, headers=CORS_HEADERS)
+
+        code = (data.get("code") or "").strip().upper()
+        amount = int(data.get("amount") or 0)
+
+        is_valid, promo_data, reason = await check_promo_code(code, amount)
+        if not is_valid or not promo_data:
+            err_msg = {
+                "not_found": "Bunday promokod mavjud emas!",
+                "inactive": "Ushbu promokod faol emas!",
+                "limit_reached": "Promokodning foydalanish limiti tugagan!",
+                "min_amount_not_met": f"Minimal buyurtma summasi: {promo_data.get('min_order_amount', 0):,} so'm!" if promo_data else "Summa yetarli emas!"
+            }.get(reason, "Promokod yaroqsiz!")
+            return web.json_response({"ok": False, "error": err_msg}, headers=CORS_HEADERS)
+
+        discount_percent = promo_data.get("discount_percent", 0)
+        discount_amount = int((amount * discount_percent) / 100)
+        return web.json_response({
+            "ok": True,
+            "code": code,
+            "discount_percent": discount_percent,
+            "discount_amount": discount_amount
+        }, headers=CORS_HEADERS)
+
+    # 3. GEO / MASOFA VA YETKAZISH NARXINI HISOBLASH
+    async def api_calculate_delivery_handler(request):
+        try:
+            data = await request.json()
+            lat = float(data.get("lat"))
+            lon = float(data.get("lon"))
+        except Exception:
+            return web.json_response({"ok": False, "error": "Noto'g'ri koordinatalar"}, headers=CORS_HEADERS)
+
+        if not is_within_uzbekistan(lat, lon):
+            return web.json_response({
+                "ok": False,
+                "error": "Belgilangan nuqta O'zbekiston hududidan tashqarida!"
+            }, headers=CORS_HEADERS)
+
+        branches = await get_active_branches()
+        nearest_branch, distance_km = find_nearest_branch(lat, lon, branches)
+
+        if distance_km > MAX_DELIVERY_RADIUS_KM:
+            return web.json_response({
+                "ok": False,
+                "error": f"Yetkazib berish zonasi cheklangan ({MAX_DELIVERY_RADIUS_KM:.0f} km). Siz {distance_km:.1f} km uzoqlikdasiz."
+            }, headers=CORS_HEADERS)
+
+        fee = calculate_delivery_fee(distance_km)
+        address = await reverse_geocode(lat, lon)
+
+        return web.json_response({
+            "ok": True,
+            "address": address,
+            "distance_km": round(distance_km, 1),
+            "delivery_fee": fee,
+            "branch_id": nearest_branch.get("id"),
+            "branch_name": nearest_branch.get("name")
+        }, headers=CORS_HEADERS)
+
+    # 4. BUYURTMA YARATISH (POST /api/order/create)
+    async def api_order_create_handler(request):
         try:
             data = await request.json()
         except Exception as e:
-            logger.error(f"Invalid JSON in /api/order: {e}")
-            return web.json_response({"ok": False, "error": "Invalid JSON"}, headers={"Access-Control-Allow-Origin": "*"})
+            return web.json_response({"ok": False, "error": f"Invalid JSON: {e}"}, headers=CORS_HEADERS)
 
         user_id = data.get("user_id")
         if not user_id:
-            user_info = data.get("user") or {}
-            user_id = user_info.get("id")
+            user_data = data.get("user") or {}
+            user_id = user_data.get("id")
 
         if not user_id:
-            return web.json_response({"ok": False, "error": "User ID topilmadi"}, headers={"Access-Control-Allow-Origin": "*"})
+            return web.json_response({"ok": False, "error": "Foydalanuvchi ma'lumotlari topilmadi!"}, headers=CORS_HEADERS)
 
         user_id = int(user_id)
-        user_info = data.get("user") or {}
-        first_name = user_info.get("first_name", "Mijoz")
-        lang = await get_user_lang(user_id)
+        phone = clean_phone_number(data.get("phone") or "")
+        if not phone:
+            return web.json_response({"ok": False, "error": "Iltimos, to'g'ri telefon raqamingizni kiriting (+998901234567)"}, headers=CORS_HEADERS)
 
-        # Ish vaqti tekshiruvi (UTC+5)
-        if not is_working_hours():
-            alert_msg = get_text(
-                "closed_alert",
-                lang,
-                start=WORKING_HOURS_START,
-                end=WORKING_HOURS_END
-            )
-            try:
-                await bot.send_message(user_id, alert_msg)
-            except Exception:
-                pass
-            return web.json_response({"ok": False, "error": "closed"}, headers={"Access-Control-Allow-Origin": "*"})
+        # Foydalanuvchi telefonini bazaga yozib qo'yamiz
+        await save_or_update_user(user_id, phone=phone, full_name=(data.get("user") or {}).get("first_name", ""))
 
-        items = data.get("items", [])
-        if not items:
-            return web.json_response({"ok": False, "error": "Savatcha bo'sh"}, headers={"Access-Control-Allow-Origin": "*"})
+        raw_items = data.get("items", [])
+        if not raw_items:
+            return web.json_response({"ok": False, "error": "Savatingiz bo'sh!"}, headers=CORS_HEADERS)
 
-        # Savatni bazaga to'liq yozamiz
-        await set_cart_items(user_id, items)
+        # Xavfsizlik: Mahsulot narxlarini bazadan qayta hisoblaymiz (soxtalashtirishdan himoya)
+        verified_items = []
+        items_total = 0
+        for item in raw_items:
+            p_id = item.get("id") or item.get("product_id")
+            qty = max(1, int(item.get("quantity") or item.get("count", 1)))
+            p_data = await get_product_by_id(p_id)
+            if p_data and p_data.get("is_available") == 1:
+                real_price = p_data["price"]
+                item_sum = real_price * qty
+                items_total += item_sum
+                verified_items.append({
+                    "product_id": p_id,
+                    "name": p_data["name"],
+                    "price": real_price,
+                    "quantity": qty,
+                    "total_price": item_sum
+                })
 
-        items_total = data.get("items_total", 0)
-        promo_code = data.get("promo_code")
-        discount_amount = data.get("discount_amount", 0)
+        if not verified_items:
+            return web.json_response({"ok": False, "error": "Tanlangan mahsulotlar hozirda mavjud emas!"}, headers=CORS_HEADERS)
+
         delivery_type = data.get("delivery_type", "delivery")
+        lat = data.get("lat")
+        lon = data.get("lon")
+        table_number = data.get("table_number")
+        address = data.get("address", "")
+        branch_id = data.get("branch_id")
+        branch_name = data.get("branch_name")
+        distance_km = data.get("distance_km")
 
-        # Foydalanuvchining FSM kontekstini olamiz
-        state = dp.current_state(chat=user_id, user=user_id)
-        await state.update_data(
+        if delivery_type == "eat_in":
+            delivery_fee = 0
+            if not table_number:
+                return web.json_response({"ok": False, "error": "Stol raqami kiritilmadi!"}, headers=CORS_HEADERS)
+            address = f"Stol raqami: #{table_number}"
+            branch_name = branch_name or "Restoran zali"
+        else:
+            # Yetkazib berish
+            if not lat or not lon:
+                return web.json_response({"ok": False, "error": "Yetkazib berish manzili yoki koordinatasi ko'rsatilmadi!"}, headers=CORS_HEADERS)
+            lat = float(lat)
+            lon = float(lon)
+            branches = await get_active_branches()
+            nearest_branch, calc_dist = find_nearest_branch(lat, lon, branches)
+            if calc_dist > MAX_DELIVERY_RADIUS_KM:
+                return web.json_response({"ok": False, "error": "Manzil yetkazib berish zonasidan tashqarida!"}, headers=CORS_HEADERS)
+            distance_km = calc_dist
+            branch_id = nearest_branch.get("id")
+            branch_name = nearest_branch.get("name")
+            delivery_fee = calculate_delivery_fee(distance_km)
+            if not address or len(address) < 3:
+                address = await reverse_geocode(lat, lon)
+
+        # Promokod chegirmasi
+        promo_code = data.get("promo_code")
+        discount_amount = 0
+        if promo_code:
+            is_valid, p_dict, _ = await check_promo_code(promo_code, items_total)
+            if is_valid and p_dict:
+                discount_amount = int((items_total * p_dict["discount_percent"]) / 100)
+                await mark_promo_used(p_dict["id"])
+
+        final_total = max(0, items_total - discount_amount) + delivery_fee
+        payment_method = data.get("payment_method", "cash")
+
+        # To'lov holati
+        payment_status = "cash" if payment_method == "cash" else "unpaid"
+
+        # Bazaga buyurtmani yozish
+        order_id = await create_order(
             user_id=user_id,
-            full_name=first_name,
-            cart_items=items,
-            items_total=items_total,
-            lang=lang,
+            delivery_type=delivery_type,
+            table_number=table_number,
+            address=address,
+            lat=lat,
+            lon=lon,
+            branch_id=branch_id,
+            branch_name=branch_name,
+            distance_km=distance_km,
+            phone=phone,
+            note=data.get("note", ""),
             promo_code=promo_code,
             discount_amount=discount_amount,
-            delivery_type=delivery_type,
-            delivery_fee=0
+            items_total=items_total,
+            delivery_fee=delivery_fee,
+            final_total=final_total,
+            payment_method=payment_method,
+            items=verified_items,
+            payment_status=payment_status
         )
 
-        summary_text = (
-            f"🍔 <b>Web App orqali buyurtmangiz qabul qilindi!</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"📦 Mahsulotlar: <b>{items_total:,} so'm</b> ({len(items)} xil)\n"
-        )
-        if discount_amount > 0:
-            summary_text += f"🏷 Chegirma ({promo_code}): <b>-{discount_amount:,} so'm</b>\n"
-        summary_text += f"━━━━━━━━━━━━━━━━━━━━\n"
+        # Savatni tozalash
+        await clear_cart(user_id)
 
+        # Marshrutlash:
+        if payment_method == "cash":
+            # NAQD: darhol kanalga yuboriladi
+            try:
+                order_full_data = {
+                    "delivery_type": delivery_type,
+                    "table_number": table_number,
+                    "branch_name": branch_name,
+                    "address": address,
+                    "distance_km": distance_km,
+                    "lat": lat,
+                    "lon": lon,
+                    "phone": phone,
+                    "full_name": (data.get("user") or {}).get("first_name", "Mijoz"),
+                    "user_id": user_id,
+                    "note": data.get("note", ""),
+                    "items_total": items_total,
+                    "discount_amount": discount_amount,
+                    "promo_code": promo_code,
+                    "delivery_fee": delivery_fee,
+                    "final_total": final_total,
+                    "payment_method": "cash"
+                }
+                await notify_admins_new_order(bot, order_full_data, verified_items, order_id)
+            except Exception as ex:
+                logger.error(f"Error notifying channel for cash order #{order_id}: {ex}")
+
+            # Mijozga botda chek
+            try:
+                await bot.send_message(
+                    user_id,
+                    f"✅ <b>Buyurtmangiz #{order_id} qabul qilindi!</b>\n"
+                    f"To'lov turi: 💵 Naqd pul\n"
+                    f"Jami summa: <b>{final_total:,} so'm</b>\n"
+                    f"Operatorlarimiz tez orada siz bilan bog'lanishadi! 😊",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+
+            return web.json_response({
+                "ok": True,
+                "order_id": order_id,
+                "payment_status": "cash",
+                "final_total": final_total
+            }, headers=CORS_HEADERS)
+
+        else:
+            # CLICK yoki PAYME:
+            # QAT'IY QOIDA: Toki to'lov o'tmaguncha OSHXONA KANALIGA YUBORILMAYDI!
+            payment_url = ""
+            if payment_method == "click":
+                # Click to'lov havolasi (Deep link)
+                payment_url = f"https://my.click.uz/services/pay?service_id=32456&merchant_id=23451&amount={final_total}&transaction_param={order_id}"
+            elif payment_method == "payme":
+                # Payme to'lov havolasi
+                payment_url = f"https://checkout.paycom.uz/checkout/{order_id}?amount={final_total * 100}"
+
+            return web.json_response({
+                "ok": True,
+                "order_id": order_id,
+                "payment_status": "unpaid",
+                "payment_url": payment_url,
+                "final_total": final_total
+            }, headers=CORS_HEADERS)
+
+    # 5. TO'LOV HOLATINI TEKSHIRISH (POLLING ENDPOINT)
+    async def api_order_payment_status_handler(request):
+        order_id_str = request.query.get("order_id")
+        if not order_id_str or not order_id_str.isdigit():
+            return web.json_response({"ok": False, "error": "order_id required"}, headers=CORS_HEADERS)
+
+        order_id = int(order_id_str)
+        status_info = await get_order_payment_status(order_id)
+        if not status_info:
+            return web.json_response({"ok": False, "error": "Order not found"}, headers=CORS_HEADERS)
+
+        return web.json_response({
+            "ok": True,
+            "order_id": order_id,
+            "status": status_info.get("status"),
+            "payment_status": status_info.get("payment_status"),
+            "final_total": status_info.get("final_total")
+        }, headers=CORS_HEADERS)
+
+    # 6. TO'LOVNI SIMULYATSIYA QILISH / TASDIQLASH (TEST & WEBHOOK)
+    async def api_order_pay_simulate_handler(request):
         try:
-            if delivery_type == "eat_in":
-                summary_text += f"📌 Turi: <b>🍽 Shu yerda (Zalda)</b>\n\n"
-                await state.update_data(delivery_fee=0)
-                await state.set_state(OrderStates.waiting_for_table_number)
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=summary_text + get_text("ask_table_number", lang),
-                    reply_markup=get_cancel_reply_kb(lang)
-                )
-            else:
-                summary_text += f"📌 Turi: <b>🛵 Yetkazib berish</b>\n\n"
-                await state.set_state(OrderStates.waiting_for_location)
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=summary_text + get_text("ask_location", lang),
-                    reply_markup=get_location_reply_kb(lang)
-                )
+            data = await request.json()
+            order_id = int(data.get("order_id"))
+        except Exception:
+            return web.json_response({"ok": False, "error": "order_id required"}, headers=CORS_HEADERS)
+
+        order = await get_order_by_id(order_id)
+        if not order:
+            return web.json_response({"ok": False, "error": "Order topilmadi"}, headers=CORS_HEADERS)
+
+        # To'langan deb belgilash
+        await mark_order_paid(order_id)
+
+        # ENDI OSHXONA KANALIGA YUBORILADI!
+        try:
+            await notify_admins_new_order(
+                bot,
+                order,
+                order.get("items", []),
+                order_id
+            )
         except Exception as e:
-            logger.error(f"Error sending bot message for user {user_id}: {e}")
+            logger.error(f"Error sending paid order to kitchen: {e}")
 
-        return web.json_response({"ok": True}, headers={"Access-Control-Allow-Origin": "*"})
+        # Mijozga botda bildirishnoma
+        try:
+            await bot.send_message(
+                order["user_id"],
+                f"🎉 <b>To'lov muvaffaqiyatli qabul qilindi!</b>\n"
+                f"Buyurtma #{order_id} oshxonaga topshirildi va tayyorlanmoqda. 👨‍🍳",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
 
-    async def options_handler(request):
-        return web.Response(headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type"
-        })
+        return web.json_response({"ok": True, "order_id": order_id, "payment_status": "paid"}, headers=CORS_HEADERS)
 
+    # 7. FOYDALANUVCHINING BUYURTMALARI (ORDER TRACKING)
+    async def api_user_orders_handler(request):
+        user_id_str = request.query.get("user_id")
+        if not user_id_str or not user_id_str.isdigit():
+            return web.json_response({"ok": False, "error": "user_id required"}, headers=CORS_HEADERS)
+
+        user_id = int(user_id_str)
+        orders = await get_user_orders(user_id, limit=10)
+        return web.json_response({"ok": True, "orders": orders}, headers=CORS_HEADERS)
+
+    # Routerlarni ulash
     app.router.add_get("/", index_handler)
     app.router.add_get("/index.html", index_handler)
     app.router.add_get("/menu", index_handler)
     app.router.add_get("/app", index_handler)
     app.router.add_get("/map", map_handler)
-    app.router.add_post("/api/order", api_order_handler)
-    app.router.add_options("/api/order", options_handler)
+
+    # API Route lar
+    app.router.add_get("/api/branches", api_branches_handler)
+    app.router.add_options("/api/branches", options_handler)
+
+    app.router.add_post("/api/promo", api_promo_check_handler)
+    app.router.add_options("/api/promo", options_handler)
+
+    app.router.add_post("/api/order/calculate", api_calculate_delivery_handler)
+    app.router.add_options("/api/order/calculate", options_handler)
+
+    app.router.add_post("/api/order/create", api_order_create_handler)
+    app.router.add_options("/api/order/create", options_handler)
+
+    app.router.add_get("/api/order/payment-status", api_order_payment_status_handler)
+    app.router.add_options("/api/order/payment-status", options_handler)
+
+    app.router.add_post("/api/order/pay-simulate", api_order_pay_simulate_handler)
+    app.router.add_options("/api/order/pay-simulate", options_handler)
+
+    app.router.add_get("/api/user/orders", api_user_orders_handler)
+    app.router.add_options("/api/user/orders", options_handler)
+
     app.router.add_static("/static", path=str(STATIC_DIR), name="static")
 
     runner = web.AppRunner(app)

@@ -18,15 +18,17 @@ from aiogram.types import (
 from aiohttp import web
 
 from config import BOT_TOKEN, WEB_APP_URL, PORT, is_admin
+from keyboards.order_kb import get_main_menu_keyboard, get_language_inline_kb
 from database import (
     init_db,
     save_or_update_user,
     get_user,
     get_cart_items,
-    clear_cart
+    clear_cart,
+    get_user_orders
 )
 from handlers.order import register_order_handlers
-from handlers.admin import register_admin_handlers
+from handlers.admin import register_admin_handlers, cmd_admin
 from security.rate_limiter import AntiFloodMiddleware
 from webapp_api import register_webapp_routes
 from utils.i18n import get_text
@@ -109,84 +111,117 @@ async def on_startup(dispatcher: Dispatcher):
     logger.info("Bot is ready and listening!")
 
 
-# ---------------- ASOSIY MENYU TUGMALARI ----------------
-def get_main_menu_keyboard(lang: str = "uz", user_id: int = None) -> ReplyKeyboardMarkup:
-    """Asosiy ekran Reply klaviaturasi (Katta jozibali Web App tugmasi va Admin tugmasi bilan)."""
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(
-        KeyboardButton(
-            text="🍔 Menyu & Buyurtma berish",
-            web_app=WebAppInfo(url=WEB_APP_URL)
-        )
+# ---------------- XUSH KELIBSIZ MATNI ----------------
+def get_welcome_text(name: str) -> str:
+    """Asosiy Xush kelibsiz xabari (Section 1.2 dizayni)."""
+    return (
+        f"🍔 <b>Darxan Burger</b> ga xush kelibsiz, <b>{name}</b>!\n\n"
+        f"Tez va mazali taomlar — bir tugma bilan! 🚀\n\n"
+        f"📱 <b>Buyurtma berish:</b> \"🍽 Menyu\" tugmasini bosing\n"
+        f"🔍 <b>Mahsulot izlash:</b> \"🔍 Izlash\" tugmasini bosing\n"
+        f"📦 <b>Buyurtmalaringiz:</b> \"📦 Buyurtmalarim\"\n\n"
+        f"🕐 <b>Ish vaqti:</b> 09:00 — 23:00\n"
+        f"🛵 <b>Yetkazib berish:</b> 10,000 so'm\n"
+        f"📋 <b>Minimal buyurtma:</b> 30,000 so'm\n\n"
+        f"Yoqimli ishtaha tilaymiz! 😋"
     )
-    kb.add(
-        KeyboardButton(text="🛒 Savatcha"),
-        KeyboardButton(text="ℹ️ Biz haqimizda")
-    )
-    # Agar foydalanuvchi admin bo'lsa, maxsus Admin Panel tugmasi chiqadi
-    if user_id and is_admin(user_id):
-        kb.add(KeyboardButton(text="🛠 Admin Panel"))
-    return kb
 
 
-# ---------------- START KOMANDASI ----------------
+# ---------------- START VA TIL TANLASH (ONBOARDING) ----------------
 @dp.message_handler(commands=["start"], state="*")
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
-    full_name = message.from_user.full_name
-    lang = message.from_user.language_code or "uz"
-    if lang not in ("uz", "ru", "en"):
-        lang = "uz"
+    full_name = message.from_user.full_name or "Mijoz"
+    username = message.from_user.username
 
-    await save_or_update_user(user_id=user_id, full_name=full_name, language_code=lang)
-
-    text = (
-        f"Assalomu alaykum, <b>{full_name}</b>! 🍔🍕\n\n"
-        f"<b>FastFood Express</b> – eng mazali fast-food va tezkor yetkazib berish xizmati!\n\n"
-        f"🚀 <b>Yangi interaktiv Web App</b> orqali barcha taomlar rasmlarini ko'rishingiz, "
-        f"saralashingiz va bir zumda buyurtma berishingiz mumkin.\n\n"
-        f"👇 <i>Pastdagi tugmani bosing va menyuni oching:</i>"
-    )
-
-    # Inline klaviatura
-    inline_kb = InlineKeyboardMarkup(row_width=1)
-    inline_kb.add(
-        InlineKeyboardButton(
-            text="✨ Web App Menyu (Taomlar va Rasmlar)",
-            web_app=WebAppInfo(url=WEB_APP_URL)
-        ),
-        InlineKeyboardButton(
-            text="🛒 Savatni ko'rish",
-            callback_data="show_cart"
+    user = await get_user(user_id)
+    if not user or not user.get("language_code"):
+        # 1.1. Til tanlash (Yangi foydalanuvchi bo'lsa)
+        await save_or_update_user(user_id=user_id, full_name=full_name, username=username)
+        await message.answer(
+            text="🌐 Tilni tanlang / Выберите язык / Choose language:",
+            reply_markup=get_language_inline_kb()
         )
-    )
+        return
 
+    lang = user.get("language_code", "uz")
+    await save_or_update_user(user_id=user_id, full_name=full_name, username=username)
+    name = message.from_user.first_name or full_name
+
+    # 1.2. Asosiy Xush kelibsiz xabari
     await message.answer(
-        text=text,
-        reply_markup=get_main_menu_keyboard(lang, user_id=user_id)
+        text=get_welcome_text(name),
+        reply_markup=get_main_menu_keyboard(lang, user_id=user_id),
+        parse_mode="HTML"
     )
-    await message.answer("Menyuni ochish uchun tugmani bosing:", reply_markup=inline_kb)
 
 
-# ---------------- BIZ HAQIMIZDA (ABOUT) ----------------
-@dp.message_handler(lambda m: m.text in ["ℹ️ Biz haqimizda", "Biz haqimizda", "/about"], state="*")
-async def about_handler(message: types.Message):
-    about_text = (
-        f"🏢 <b>FastFood Express</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📍 Bosh filial: Amir Temur ko'chasi\n"
-        f"⏰ Ish vaqti: 09:00 dan 23:00 gacha\n"
-        f"🛵 Yetkazib berish: 25-35 daqiqa (15 km radiusda)\n"
-        f"📞 Bog'lanish: +998 (71) 200-00-00\n"
-        f"🎟 Maxsus promokod: <b>FAST10</b> (-10% chegirma)\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<i>Mazali taomlar faqat bizda!</i>"
+@dp.callback_query_handler(lambda c: c.data.startswith("set_lang:"), state="*")
+async def callback_set_language(call: types.CallbackQuery):
+    """Til tanlanganda ishlaydi."""
+    lang_code = call.data.split(":")[1]
+    user_id = call.from_user.id
+    full_name = call.from_user.full_name or "Mijoz"
+    name = call.from_user.first_name or full_name
+
+    await save_or_update_user(
+        user_id=user_id,
+        full_name=full_name,
+        username=call.from_user.username,
+        language_code=lang_code
     )
-    await message.answer(about_text)
+    await call.answer()
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+
+    await call.message.answer(
+        text=get_welcome_text(name),
+        reply_markup=get_main_menu_keyboard(lang_code, user_id=user_id),
+        parse_mode="HTML"
+    )
 
 
-# ---------------- SAVATNI KO'RISH ----------------
-@dp.message_handler(lambda m: m.text in ["🛒 Savatcha", "Savatcha", "/cart"], state="*")
+# ---------------- MENYU VA QIDIRUV (WEB APP INTEGRATSIYASI) ----------------
+@dp.message_handler(lambda m: m.text in ["🍽 Menyu", "🍽 Menyu (Web App)", "Menyu", "🍔 Menyu & Buyurtma berish", "/menu"], state="*")
+async def menu_handler(message: types.Message):
+    kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("🍔 Web App Menyuni ochish", web_app=WebAppInfo(url=WEB_APP_URL))
+    )
+    await message.answer(
+        "🍽 <b>Darxan Burger Menyu</b>\n\nBarcha taomlar, souslar va ichimliklarni ko'rish va buyurtma berish uchun quyidagi tugmani bosing:",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+
+
+@dp.message_handler(lambda m: m.text in ["🔍 Izlash", "Izlash", "/search"], state="*")
+async def search_handler(message: types.Message):
+    kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("🔍 Qidiruv (Web App)", web_app=WebAppInfo(url=WEB_APP_URL))
+    )
+    await message.answer(
+        "🔍 <b>Mahsulot izlash:</b>\n\nMenyudagi istalgan burger yoki taomni topish uchun quyidagi tugma orqali Web App ni oching:",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+
+
+@dp.message_handler(lambda m: m.text in ["❤️ Sevimlilar", "Sevimlilar", "/favorites"], state="*")
+async def favorites_handler(message: types.Message):
+    kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("❤️ Sevimlilar ro'yxati (Web App)", web_app=WebAppInfo(url=WEB_APP_URL))
+    )
+    await message.answer(
+        "❤️ <b>Sevimli taomlaringiz:</b>\n\nSevimli taomlaringizni ko'rish va buyurtma qilish uchun quyidagi tugmani bosing:",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+
+
+# ---------------- SAVATNI KO'RISH VA BOSHQARISH ----------------
+@dp.message_handler(lambda m: m.text in ["🛒 Savat", "🛒 Savatcha", "Savatcha", "Savat", "/cart"], state="*")
 @dp.callback_query_handler(lambda c: c.data == "show_cart", state="*")
 async def show_cart_handler(event: types.Message or types.CallbackQuery):
     user_id = event.from_user.id
@@ -195,17 +230,17 @@ async def show_cart_handler(event: types.Message or types.CallbackQuery):
 
     items = await get_cart_items(user_id)
     if not items:
-        msg_text = get_text("cart_empty", lang)
+        msg_text = (
+            "🛒 <b>Sizning savatingiz bo'sh.</b>\n\n"
+            "Taom tanlash uchun quyidagi tugma orqali menyuni oching:"
+        )
         kb = InlineKeyboardMarkup().add(
-            InlineKeyboardButton(
-                text="🍔 Menyu (Web App)",
-                web_app=WebAppInfo(url=WEB_APP_URL)
-            )
+            InlineKeyboardButton("🍔 Menyu (Web App)", web_app=WebAppInfo(url=WEB_APP_URL))
         )
         if isinstance(event, types.CallbackQuery):
-            await event.message.edit_text(msg_text, reply_markup=kb)
+            await event.message.edit_text(msg_text, reply_markup=kb, parse_mode="HTML")
         else:
-            await event.answer(msg_text, reply_markup=kb)
+            await event.answer(msg_text, reply_markup=kb, parse_mode="HTML")
         return
 
     total = sum((i.get("price", 0) * i.get("quantity", 1)) for i in items)
@@ -226,9 +261,9 @@ async def show_cart_handler(event: types.Message or types.CallbackQuery):
     )
 
     if isinstance(event, types.CallbackQuery):
-        await event.message.edit_text(cart_text, reply_markup=kb)
+        await event.message.edit_text(cart_text, reply_markup=kb, parse_mode="HTML")
     else:
-        await event.answer(cart_text, reply_markup=kb)
+        await event.answer(cart_text, reply_markup=kb, parse_mode="HTML")
 
 
 @dp.callback_query_handler(lambda c: c.data == "clear_cart", state="*")
@@ -236,11 +271,92 @@ async def handle_clear_cart(call: types.CallbackQuery):
     await clear_cart(call.from_user.id)
     await call.answer("🗑 Savatingiz tozalandi.")
     await call.message.edit_text(
-        "🛒 Savatingiz bo'shatildi.\nTaom tanlash uchun Web App ni oching:",
+        "🛒 Savatingiz bo'shatildi.\nTaom tanlash uchun menyuni oching:",
         reply_markup=InlineKeyboardMarkup().add(
             InlineKeyboardButton("🍔 Menyuni ochish", web_app=WebAppInfo(url=WEB_APP_URL))
-        )
+        ),
+        parse_mode="HTML"
     )
+
+
+# ---------------- BUYURTMALAR TARIXI ----------------
+@dp.message_handler(lambda m: m.text in ["📦 Buyurtmalarim", "Buyurtmalarim", "/orders"], state="*")
+async def my_orders_handler(message: types.Message):
+    user_id = message.from_user.id
+    orders = await get_user_orders(user_id, limit=5)
+    if not orders:
+        kb = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("🍽 Menyu", web_app=WebAppInfo(url=WEB_APP_URL))
+        )
+        await message.answer(
+            "📦 <b>Sizda hali hech qanday buyurtma yo'q.</b>\n\nBirinchi buyurtmangizni berish uchun menyuni oching:",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
+    status_names = {
+        "pending": "⏳ Kutilmoqda",
+        "preparing": "👨‍🍳 Tayyorlanmoqda",
+        "delivering": "🛵 Yetkazilmoqda",
+        "completed": "✅ Yetkazildi",
+        "cancelled": "❌ Bekor qilindi"
+    }
+
+    text = "📦 <b>Sizning oxirgi buyurtmalaringiz:</b>\n\n"
+    for o in orders:
+        st = status_names.get(o.get("status"), o.get("status", ""))
+        created_at = (o.get("created_at") or "")[:16]
+        total = o.get("total_amount", 0)
+        items = o.get("items", [])
+        items_str = ", ".join(f"{it.get('product_name', 'Taom')} x {it.get('quantity', 1)}" for it in items[:3])
+        if len(items) > 3:
+            items_str += f" va yana {len(items)-3} ta"
+        text += (
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🧾 <b>Buyurtma #{o['id']}</b> ({created_at})\n"
+            f"📊 Holati: <b>{st}</b>\n"
+            f"📋 Tarkib: {items_str or 'Taomlar'}\n"
+            f"💰 Jami summa: <b>{total:,} so'm</b>\n"
+        )
+    text += "━━━━━━━━━━━━━━━━━━━━"
+    await message.answer(text, parse_mode="HTML")
+
+
+# ---------------- PROFIL ----------------
+@dp.message_handler(lambda m: m.text in ["👤 Profil", "Profil", "/profile"], state="*")
+async def profile_handler(message: types.Message):
+    user_id = message.from_user.id
+    user = await get_user(user_id)
+    name = (user.get("full_name") if user else None) or message.from_user.full_name
+    phone = (user.get("phone") if user else None) or (user.get("phone_number") if user else None) or "Kiritilmagan"
+    lang = user.get("language_code", "uz") if user else "uz"
+    lang_display = {"uz": "🇺🇿 O'zbek", "ru": "🇷🇺 Русский", "en": "🇬🇧 English"}.get(lang, "🇺🇿 O'zbek")
+
+    text = (
+        f"👤 <b>Sizning profilingiz:</b>\n\n"
+        f"▫️ <b>Ismingiz:</b> {name}\n"
+        f"▫️ <b>Telefon raqamingiz:</b> {phone}\n"
+        f"▫️ <b>Tanlangan til:</b> {lang_display}\n\n"
+        f"🌐 <i>Tilni o'zgartirish uchun quyidagi tugmalardan birini tanlang:</i>"
+    )
+    await message.answer(text, reply_markup=get_language_inline_kb(), parse_mode="HTML")
+
+
+# ---------------- BOG'LANISH VA BIZ HAQIMIZDA ----------------
+@dp.message_handler(lambda m: m.text in ["☎️ Bog'lanish", "Bog'lanish", "ℹ️ Biz haqimizda", "Biz haqimizda", "/contact", "/about"], state="*")
+async def contact_handler(message: types.Message):
+    contact_text = (
+        f"☎️ <b>Darxan Burger bilan bog'lanish:</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📞 <b>Telefon:</b> +998 (71) 200-00-00\n"
+        f"💬 <b>Qo'llab-quvvatlash:</b> @darxan_support\n"
+        f"📍 <b>Bosh filial:</b> Amir Temur ko'chasi, 45-uy\n"
+        f"🕐 <b>Ish vaqti:</b> 09:00 — 23:00\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"<i>Har qanday savol yoki takliflaringiz bo'lsa, biz doim yordamga tayyormiz!</i>"
+    )
+    await message.answer(contact_text, parse_mode="HTML")
 
 
 # ==========================================

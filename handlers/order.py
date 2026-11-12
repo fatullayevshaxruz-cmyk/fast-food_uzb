@@ -47,12 +47,16 @@ from utils.order_cancel import (
 )
 from security.payment_guard import generate_click_link, generate_payme_link
 from keyboards.order_kb import (
-    get_delivery_type_kb,
+    get_delivery_type_reply_kb,
     get_location_reply_kb,
     get_phone_reply_kb,
+    get_skip_or_cancel_reply_kb,
     get_skip_or_cancel_inline_kb,
     get_cancel_reply_kb,
-    get_payment_method_kb
+    get_payment_method_reply_kb,
+    get_payment_method_kb,
+    get_online_payment_channels_kb,
+    get_main_menu_keyboard
 )
 
 logger = logging.getLogger(__name__)
@@ -229,11 +233,13 @@ async def start_checkout(call: types.CallbackQuery, state: FSMContext):
         delivery_fee=0
     )
 
-    # Yetkazish turini tanlash holatiga o'tish
+    # Yetkazish turini tanlash holatiga o'tish (Section 2.1)
     await OrderStates.waiting_for_delivery_type.set()
-    await call.message.edit_text(
-        text=get_text("choose_delivery_type", lang),
-        reply_markup=get_delivery_type_kb(lang)
+    await call.message.delete()
+    await call.message.answer(
+        text="🛵 <b>Yetkazib berish turini tanlang:</b>",
+        reply_markup=get_delivery_type_reply_kb(lang),
+        parse_mode="HTML"
     )
 
 
@@ -252,35 +258,83 @@ async def process_delivery_type(call: types.CallbackQuery, state: FSMContext):
     await call.answer()
 
     if choice == "eat_in":
-        # Shu yerda: Stol raqami so'raladi
+        # Shu yerda: Stol raqami so'raladi (Section 2.2)
         await state.update_data(delivery_type="eat_in", delivery_fee=0)
         await OrderStates.waiting_for_table_number.set()
-        await call.message.delete()
+        try:
+            await call.message.delete()
+        except Exception:
+            pass
         await call.message.answer(
-            text=get_text("ask_table_number", lang),
-            reply_markup=get_cancel_reply_kb(lang)
+            text="🪑 <b>Stol raqamini kiriting:</b>\n<i>(Masalan: 5 yoki 12)</i>",
+            reply_markup=get_cancel_reply_kb(lang),
+            parse_mode="HTML"
         )
 
     elif choice == "delivery":
-        # Yetkazib berish: Minimal summa tekshiriladi
+        # Yetkazib berish: Minimal summa tekshiriladi (Section 2.3)
         if items_total < MIN_ORDER_AMOUNT:
             diff = MIN_ORDER_AMOUNT - items_total
-            err_msg = get_text(
-                "min_order_error",
-                lang,
-                min_amount=MIN_ORDER_AMOUNT,
-                current_amount=items_total,
-                diff=diff
+            await call.message.answer(
+                f"⚠️ Minimal buyurtma summasi: <b>{MIN_ORDER_AMOUNT:,} so'm</b>!\n"
+                f"Sizda: {items_total:,} so'm (Yana {diff:,} so'mlik mahsulot qo'shing).",
+                parse_mode="HTML"
             )
-            await call.message.edit_text(err_msg, reply_markup=get_delivery_type_kb(lang))
             return
 
         await state.update_data(delivery_type="delivery")
         await OrderStates.waiting_for_location.set()
-        await call.message.delete()
+        try:
+            await call.message.delete()
+        except Exception:
+            pass
         await call.message.answer(
-            text=get_text("ask_location", lang),
-            reply_markup=get_location_reply_kb(lang)
+            text="📍 <b>Yetkazib berish manzilini yuboring:</b>\n\n<i>Pastdagi tugma orqali GPS lokatsiyangizni jo'nating yoki xaritadan tanlang:</i>",
+            reply_markup=get_location_reply_kb(lang),
+            parse_mode="HTML"
+        )
+
+
+async def process_delivery_type_message(message: types.Message, state: FSMContext):
+    """
+    «🍽 Shu yerda (Kafe)» yoki «🛵 Yetkazib berish» Reply tugmasi bosilganda ishlaydi.
+    """
+    text = (message.text or "").strip()
+    data = await state.get_data()
+    lang = data.get("lang", "uz")
+    items_total = data.get("items_total", 0)
+
+    if any(k in text for k in ["Shu yerda", "Kafe", "Eat", "Здесь", "В кафе"]):
+        await state.update_data(delivery_type="eat_in", delivery_fee=0)
+        await OrderStates.waiting_for_table_number.set()
+        await message.answer(
+            text="🪑 <b>Stol raqamini kiriting:</b>\n<i>(Masalan: 5 yoki 12)</i>",
+            reply_markup=get_cancel_reply_kb(lang),
+            parse_mode="HTML"
+        )
+    elif any(k in text for k in ["Yetkazib", "Delivery", "Доставка"]):
+        if items_total < MIN_ORDER_AMOUNT:
+            diff = MIN_ORDER_AMOUNT - items_total
+            await message.answer(
+                f"⚠️ Minimal buyurtma summasi: <b>{MIN_ORDER_AMOUNT:,} so'm</b>!\n"
+                f"Sizda: {items_total:,} so'm (Yana {diff:,} so'mlik mahsulot qo'shing).",
+                parse_mode="HTML"
+            )
+            return
+
+        await state.update_data(delivery_type="delivery")
+        await OrderStates.waiting_for_location.set()
+        await message.answer(
+            text="📍 <b>Yetkazib berish manzilini yuboring:</b>\n\n<i>Pastdagi tugma orqali GPS lokatsiyangizni jo'nating yoki xaritadan tanlang:</i>",
+            reply_markup=get_location_reply_kb(lang),
+            parse_mode="HTML"
+        )
+    elif any(k in text for k in ["Bekor", "Cancel", "Отмена"]):
+        await cancel_order_handler(message, state)
+    else:
+        await message.answer(
+            "Iltimos, yetkazib berish turini tanlang:",
+            reply_markup=get_delivery_type_reply_kb(lang)
         )
 
 
@@ -296,8 +350,15 @@ async def process_table_number(message: types.Message, state: FSMContext):
     lang = data.get("lang", "uz")
     text = (message.text or "").strip()
 
+    if any(k in text for k in ["Bekor", "Cancel", "Отмена"]):
+        await cancel_order_handler(message, state)
+        return
+
     if not text.isdigit() or int(text) <= 0:
-        await message.answer(get_text("invalid_table_number", lang))
+        await message.answer(
+            "⚠️ Iltimos, faqat musbat butun son kiriting (Masalan: 5 yoki 12):",
+            reply_markup=get_cancel_reply_kb(lang)
+        )
         return
 
     table_num = int(text)
@@ -312,11 +373,16 @@ async def process_table_number(message: types.Message, state: FSMContext):
         phone=phone
     )
 
-    # To'g'ridan-to'g'ri Izoh bosqichiga o'tamiz
+    # To'g'ridan-to'g'ri Izoh bosqichiga o'tamiz (Section 2.5)
     await OrderStates.waiting_for_note.set()
+    note_text = (
+        "💬 <b>Buyurtma uchun qo'shimcha izohingiz bormi?</b>\n"
+        "<i>(Masalan: Domofon kodi: 45, achchiq bo'lmasin)</i>"
+    )
     await message.answer(
-        text=get_text("ask_note", lang),
-        reply_markup=get_skip_or_cancel_inline_kb("skip_note", lang)
+        text=note_text,
+        reply_markup=get_skip_or_cancel_reply_kb(lang),
+        parse_mode="HTML"
     )
 
 
@@ -429,15 +495,22 @@ async def process_location(message: types.Message, state: FSMContext):
         await state.update_data(phone=saved_phone)
         await OrderStates.waiting_for_note.set()
         await message.answer(
-            text=get_text("ask_note", lang),
-            reply_markup=get_skip_or_cancel_inline_kb("skip_note", lang)
+            text="💬 <b>Buyurtma uchun qo'shimcha izohingiz bormi?</b>\n<i>(Masalan: Domofon kodi: 45, achchiq bo'lmasin)</i>",
+            reply_markup=get_skip_or_cancel_reply_kb(lang),
+            parse_mode="HTML"
         )
     else:
-        # Raqam bo'lmasa, so'rash
+        # Raqam bo'lmasa, so'rash (Section 2.4)
         await OrderStates.waiting_for_phone.set()
+        phone_prompt = (
+            f"📞 <b>Telefon raqamingizni tasdiqlang:</b>\n\n"
+            f"<i>Pastdagi tugma orqali telefon raqamingizni yuboring yoki quyidagi formatda yozing (+998901234567):</i>\n"
+            f"📍 <b>Sizga eng yaqin filial:</b> {nearest_branch.get('name', 'Filial')} ({distance_km:.1f} km)"
+        )
         await message.answer(
-            text=get_text("ask_phone", lang),
-            reply_markup=get_phone_reply_kb(lang)
+            text=phone_prompt,
+            reply_markup=get_phone_reply_kb(lang),
+            parse_mode="HTML"
         )
 
 
@@ -451,6 +524,10 @@ async def process_phone(message: types.Message, state: FSMContext):
     """
     data = await state.get_data()
     lang = data.get("lang", "uz")
+
+    if message.text and any(k in message.text for k in ["Bekor", "Cancel", "Отмена"]):
+        await cancel_order_handler(message, state)
+        return
 
     raw_phone = None
     if message.contact:
@@ -470,11 +547,12 @@ async def process_phone(message: types.Message, state: FSMContext):
     await save_or_update_user(message.from_user.id, phone=phone)
     await state.update_data(phone=phone)
 
-    # Izoh bosqichiga o'tish
+    # Izoh bosqichiga o'tish (Section 2.5)
     await OrderStates.waiting_for_note.set()
     await message.answer(
-        text=get_text("ask_note", lang),
-        reply_markup=get_skip_or_cancel_inline_kb("skip_note", lang)
+        text="💬 <b>Buyurtma uchun qo'shimcha izohingiz bormi?</b>\n<i>(Masalan: Domofon kodi: 45, achchiq bo'lmasin)</i>",
+        reply_markup=get_skip_or_cancel_reply_kb(lang),
+        parse_mode="HTML"
     )
 
 
@@ -485,13 +563,20 @@ async def process_note_text(message: types.Message, state: FSMContext):
     """Izoh matn shaklida kiritilganda."""
     data = await state.get_data()
     lang = data.get("lang", "uz")
-    note = message.text.strip()
+    note = (message.text or "").strip()
+
+    if any(k in note for k in ["O'tkazib", "Otqazib", "Пропустить", "Skip"]):
+        note = ""
+    elif any(k in note for k in ["Bekor", "Cancel", "Отмена"]):
+        await cancel_order_handler(message, state)
+        return
 
     await state.update_data(note=note)
     await OrderStates.waiting_for_promo.set()
     await message.answer(
-        text=get_text("ask_promo", lang),
-        reply_markup=get_skip_or_cancel_inline_kb("skip_promo", lang)
+        text="🎟 <b>Chegirma uchun promokodingiz bormi?</b>\n<i>(Masalan: DARXAN10 yoki FASTFOOD)</i>",
+        reply_markup=get_skip_or_cancel_reply_kb(lang),
+        parse_mode="HTML"
     )
 
 
@@ -503,9 +588,14 @@ async def process_note_skip(call: types.CallbackQuery, state: FSMContext):
     await call.answer()
     await state.update_data(note="")
     await OrderStates.waiting_for_promo.set()
-    await call.message.edit_text(
-        text=get_text("ask_promo", lang),
-        reply_markup=get_skip_or_cancel_inline_kb("skip_promo", lang)
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+    await call.message.answer(
+        text="🎟 <b>Chegirma uchun promokodingiz bormi?</b>\n<i>(Masalan: DARXAN10 yoki FASTFOOD)</i>",
+        reply_markup=get_skip_or_cancel_reply_kb(lang),
+        parse_mode="HTML"
     )
 
 
@@ -516,15 +606,24 @@ async def process_promo_text(message: types.Message, state: FSMContext):
     """
     data = await state.get_data()
     lang = data.get("lang", "uz")
-    items_total = data.get("items_total", 0)
-    code = message.text.strip().upper()
+    text = (message.text or "").strip()
 
+    if any(k in text for k in ["O'tkazib", "Otqazib", "Пропустить", "Skip"]):
+        await state.update_data(promo_code=None, discount_amount=0)
+        await ask_payment_method(message, state, is_callback=False)
+        return
+    elif any(k in text for k in ["Bekor", "Cancel", "Отмена"]):
+        await cancel_order_handler(message, state)
+        return
+
+    items_total = data.get("items_total", 0)
+    code = text.upper()
     is_valid, promo_data, reason = await check_promo_code(code, items_total)
 
     if not is_valid or not promo_data:
         await message.answer(
-            get_text("promo_invalid", lang),
-            reply_markup=get_skip_or_cancel_inline_kb("skip_promo", lang)
+            "⚠️ Kiritilgan promokod yaroqsiz yoki muddati tugagan.\nQaytadan kiriting yoki o'tkazib yuboring:",
+            reply_markup=get_skip_or_cancel_reply_kb(lang)
         )
         return
 
@@ -540,41 +639,50 @@ async def process_promo_text(message: types.Message, state: FSMContext):
     )
 
     await message.answer(
-        get_text(
-            "promo_success",
-            lang,
-            discount_percent=discount_percent,
-            saved_amount=discount_amount
-        )
+        f"✅ <b>Promokod qabul qilindi!</b>\nChegirma: <b>{discount_percent}% (-{discount_amount:,} so'm)</b> 🎉",
+        parse_mode="HTML"
     )
 
     # To'lov turini tanlash bosqichiga yo'naltirish
-    await ask_payment_method(message, state)
+    await ask_payment_method(message, state, is_callback=False)
 
 
 async def process_promo_skip(call: types.CallbackQuery, state: FSMContext):
     """Promokodni o'tkazib yuborish."""
     await call.answer()
     await state.update_data(promo_code=None, discount_amount=0)
-    await ask_payment_method(call.message, state, is_callback=True)
+    await ask_payment_method(call, state, is_callback=True)
 
 
 async def ask_payment_method(message_or_target, state: FSMContext, is_callback: bool = False):
-    """To'lov usulini tanlashni so'raydi."""
+    """To'lov usulini tanlashni so'raydi (Section 3.1)."""
     data = await state.get_data()
     lang = data.get("lang", "uz")
 
     await OrderStates.waiting_for_payment_method.set()
 
-    if is_callback:
-        await message_or_target.edit_text(
-            text=get_text("ask_payment", lang),
-            reply_markup=get_payment_method_kb(lang)
+    text = "💳 <b>To'lov usulini tanlang:</b>"
+    if is_callback and isinstance(message_or_target, types.CallbackQuery):
+        try:
+            await message_or_target.message.delete()
+        except Exception:
+            pass
+        await message_or_target.message.answer(
+            text=text,
+            reply_markup=get_payment_method_reply_kb(lang),
+            parse_mode="HTML"
+        )
+    elif isinstance(message_or_target, types.Message):
+        await message_or_target.answer(
+            text=text,
+            reply_markup=get_payment_method_reply_kb(lang),
+            parse_mode="HTML"
         )
     else:
         await message_or_target.answer(
-            text=get_text("ask_payment", lang),
-            reply_markup=get_payment_method_kb(lang)
+            text=text,
+            reply_markup=get_payment_method_reply_kb(lang),
+            parse_mode="HTML"
         )
 
 
@@ -582,20 +690,40 @@ async def ask_payment_method(message_or_target, state: FSMContext, is_callback: 
 # 6. TO'LOV VA BUYURTMANI YAKUNLASH (FINISH ORDER)
 # ==========================================
 async def process_payment_method(call: types.CallbackQuery, state: FSMContext):
-    """
-    To'lov turini qabul qiladi va buyurtmani rasmiylashtiradi:
-    1. Yakuniy summani hisoblash: (Mahsulotlar - Chegirma) + Yetkazish haqi
-    2. Bazaga kiritish (create_order)
-    3. Promokodni ishlatilgan deb belgilash
-    4. Savatni tozalash (clear_cart)
-    5. Foydalanuvchiga chiroyli kvitansiya taqdim etish
-    6. Oshxona va kuryer kanaliga xabar jo'natish
-    7. State ni yakunlash
-    """
+    """To'lov turini callback orqali qabul qilish."""
     payment_method = call.data.split(":")[1]
+    await call.answer()
+    await finish_order_process(call, state, payment_method)
+
+
+async def process_payment_method_message(message: types.Message, state: FSMContext):
+    """To'lov turini Reply tugma orqali qabul qilish."""
+    text = (message.text or "").strip()
+    if any(k in text for k in ["Naqd", "Наличные", "Cash"]):
+        await finish_order_process(message, state, "cash")
+    elif any(k in text for k in ["Online", "Karta", "Payme", "Click", "Онлайн"]):
+        await finish_order_process(message, state, "online")
+    elif any(k in text for k in ["Bekor", "Cancel", "Отмена"]):
+        await cancel_order_handler(message, state)
+    else:
+        data = await state.get_data()
+        lang = data.get("lang", "uz")
+        await message.answer(
+            "Iltimos, to'lov turini tanlang:",
+            reply_markup=get_payment_method_reply_kb(lang)
+        )
+    """To'lov turini Reply tugma orqali qabul qilish."""
+    text = (message.text or "").strip()
+    payment_method = "cash" if "Naqd" in text else "online"
+    await finish_order_process(message, state, payment_method)
+
+
+async def finish_order_process(event, state: FSMContext, payment_method: str):
+    """Buyurtmani yakunlash va chek chiqarish (Section 3.2 va 3.3 dizayni)."""
     data = await state.get_data()
     lang = data.get("lang", "uz")
-    user_id = call.from_user.id
+    user_id = event.from_user.id
+    bot = event.bot
 
     items_total = data.get("items_total", 0)
     discount_amount = data.get("discount_amount", 0)
@@ -605,113 +733,111 @@ async def process_payment_method(call: types.CallbackQuery, state: FSMContext):
     await state.update_data(payment_method=payment_method, final_total=final_total)
     updated_data = await state.get_data()
 
-    # 1. Bazaga buyurtmani yozish
+    # 1. Bazaga yozish
     order_id = await create_order(
         user_id=user_id,
+        total_amount=final_total,
+        phone_number=updated_data.get("phone", ""),
+        items=updated_data.get("cart_items", []),
         delivery_type=updated_data.get("delivery_type", "delivery"),
-        table_number=updated_data.get("table_number"),
-        address=updated_data.get("address", "Ko'rsatilmagan"),
-        lat=updated_data.get("lat"),
-        lon=updated_data.get("lon"),
-        branch_id=updated_data.get("branch_id"),
-        branch_name=updated_data.get("branch_name"),
-        distance_km=updated_data.get("distance_km"),
-        phone=updated_data.get("phone", ""),
-        note=updated_data.get("note", ""),
-        promo_code=updated_data.get("promo_code"),
-        discount_amount=discount_amount,
-        items_total=items_total,
-        delivery_fee=delivery_fee,
-        final_total=final_total,
+        delivery_address=updated_data.get("address", "Ko'rsatilmagan"),
+        latitude=updated_data.get("lat"),
+        longitude=updated_data.get("lon"),
         payment_method=payment_method,
-        items=updated_data.get("cart_items", [])
+        payment_status="cash" if payment_method == "cash" else "unpaid",
+        branch_id=updated_data.get("branch_id"),
+        promo_code=updated_data.get("promo_code"),
+        discount_amount=discount_amount
     )
 
-    # 2. Agar promokod bo'lsa, uni ishlatilgan deb belgilash
     promo_id = updated_data.get("promo_id")
     if promo_id:
         await mark_promo_used(promo_id)
 
-    # 3. Savatni tozalash
     await clear_cart(user_id)
 
-    # 4. Mijozga kvitansiya (chek) tayyorlash
-    delivery_type_str = (
-        get_text("btn_delivery", lang) 
-        if updated_data.get("delivery_type") == "delivery" 
-        else f"{get_text('btn_eat_in', lang)} (#{updated_data.get('table_number', '-')})"
-    )
+    # 2. Buyurtma tarkibi
+    items_text = ""
+    for itm in updated_data.get("cart_items", []):
+        name = itm.get("name")
+        qty = itm.get("quantity", 1)
+        price = itm.get("price") or (itm.get("total_price", 0) // qty)
+        items_text += f"    ▫️ {name} x {qty} = {price * qty:,} so'm\n"
 
-    payment_method_str = {
-        "cash": get_text("pay_cash", lang),
-        "click": get_text("pay_click", lang),
-        "payme": get_text("pay_payme", lang)
-    }.get(payment_method, payment_method)
+    promo_code = updated_data.get("promo_code")
+    discount_percent = updated_data.get("discount_percent", 10)
+    promo_line = f"  🎟 <b>Promokod ({promo_code} - {discount_percent}%):</b> -{discount_amount:,} so'm\n" if discount_amount > 0 else ""
+    note_line = f"  📝 <i>Izoh: {updated_data.get('note')}</i>\n" if updated_data.get("note") else ""
+    address = updated_data.get("address", "-")
 
-    receipt = get_text("receipt_title", lang, order_id=order_id)
-    receipt += get_text("receipt_items_header", lang)
-
-    for idx, item in enumerate(updated_data.get("cart_items", []), 1):
-        name = item.get("name")
-        qty = item.get("quantity")
-        total = item.get("total_price")
-        receipt += f"{idx}. {name} x {qty} = {total:,} so'm\n"
-
-    receipt += get_text(
-        "receipt_summary",
-        lang,
-        items_total=items_total,
-        discount=discount_amount,
-        delivery_fee=delivery_fee,
-        final_total=final_total,
-        delivery_type_text=delivery_type_str,
-        address=updated_data.get("address", "-"),
-        phone=updated_data.get("phone", "-"),
-        note=updated_data.get("note") or "-",
-        payment_method=payment_method_str
-    )
-
-    await call.message.delete()
-
-    # To'lov turi va kvitansiya tugmalarini shakllantirish
-    receipt_kb = InlineKeyboardMarkup(row_width=1)
-    
-    chan_id = None
-    chan_msg_id = None
+    chan_id, chan_msg_id = None, None
 
     if payment_method == "cash":
-        receipt += "\n\n⏳ <i>Buyurtmangiz qabul qilindi. 60 soniya ichida bekor qilishingiz mumkin.</i>"
-        receipt_kb.add(
-            InlineKeyboardButton("❌ Buyurtmani bekor qilish (60s)", callback_data=f"user_cancel_order_{order_id}")
+        # 3.2. Muvaffaqiyatli Chek kvitansiyasi (Naqd to'lov uchun)
+        receipt = (
+            f"🎉 <b>Buyurtmangiz qabul qilindi!</b>\n\n"
+            f"Buyurtma raqami: <b>#{order_id}</b>\n"
+            f"📍 <b>Manzil:</b> {address}\n\n"
+            f"📋 <b>Buyurtma tarkibi:</b>\n"
+            f"{items_text}\n"
+            f"💵 <b>Mahsulotlar:</b> {items_total:,} so'm\n"
+            f"{promo_line}"
+            f"🛵 <b>Yetkazib berish:</b> {delivery_fee:,} so'm\n"
+            f"💰 <b>Jami to'lov:</b> {final_total:,} so'm\n"
+            f"💵 <b>To'lov turi:</b> Naqd pul (Yetkazib berilganda)\n"
+            f"{note_line}\n"
+            f"👨‍🍳 <i>Tez orada oshpazlarimiz taomingizni tayyorlashga kirishishadi!</i>"
         )
-        # Naqd pulda oshxonaga zudlik bilan yuboriladi
+        receipt_kb = InlineKeyboardMarkup(row_width=1)
+        receipt_kb.add(InlineKeyboardButton("❌ Buyurtmani bekor qilish (60s)", callback_data=f"user_cancel_order_{order_id}"))
+
         try:
             chan_id, chan_msg_id = await notify_admins_new_order(
-                bot=call.bot,
+                bot=bot,
                 order_data=updated_data,
                 items=updated_data.get("cart_items", []),
                 order_id=order_id
             )
         except Exception as e:
-            logger.error(f"Notification background task failed: {e}")
+            logger.error(f"Notify error: {e}")
 
-    elif payment_method == "click":
-        click_link = generate_click_link(order_id, final_total)
-        receipt += "\n\n💳 <b>To'lovni amalga oshirish uchun quyidagi tugmani bosing:</b>\n<i>(To'lov tasdiqlangach buyurtma oshxonaga uzatiladi)</i>"
-        receipt_kb.add(InlineKeyboardButton("🔹 Click orqali to'lash", url=click_link))
-        receipt_kb.add(InlineKeyboardButton("❌ Buyurtmani bekor qilish (60s)", callback_data=f"user_cancel_order_{order_id}"))
+    else:
+        # 3.3. Muvaffaqiyatli Chek (Click va Payme online to'lov uchun)
+        receipt = (
+            f"🎉 <b>Buyurtmangiz qabul qilindi!</b>\n\n"
+            f"Buyurtma raqami: <b>#{order_id}</b>\n"
+            f"📍 <b>Manzil:</b> {address}\n\n"
+            f"📋 <b>Buyurtma tarkibi:</b>\n"
+            f"{items_text}\n"
+            f"💵 <b>Mahsulotlar:</b> {items_total:,} so'm\n"
+            f"{promo_line}"
+            f"🛵 <b>Yetkazib berish:</b> {delivery_fee:,} so'm\n"
+            f"💰 <b>Jami to'lov:</b> {final_total:,} so'm\n"
+            f"💳 <b>To'lov turi:</b> Karta orqali to'lov (Click / Payme)\n"
+            f"{note_line}\n"
+            f"⏳ <b>DIQQAT:</b> Buyurtmangiz oshxonaga qabul qilinishi uchun to'lovni amalga oshiring.\n"
+            f"👇 <i>To'lov amalga oshirilgach, buyurtma darhol oshxona kanaliga yuboriladi:</i>"
+        )
+        receipt_kb = get_online_payment_channels_kb(order_id, final_total)
 
-    elif payment_method == "payme":
-        payme_link = generate_payme_link(order_id, final_total)
-        receipt += "\n\n💳 <b>To'lovni amalga oshirish uchun quyidagi tugmani bosing:</b>\n<i>(To'lov tasdiqlangach buyurtma oshxonaga uzatiladi)</i>"
-        receipt_kb.add(InlineKeyboardButton("💳 Payme orqali to'lash", url=payme_link))
-        receipt_kb.add(InlineKeyboardButton("❌ Buyurtmani bekor qilish (60s)", callback_data=f"user_cancel_order_{order_id}"))
-
-    user_msg = await call.message.answer(receipt, parse_mode="HTML", reply_markup=receipt_kb)
+    if isinstance(event, types.CallbackQuery):
+        await event.message.delete()
+        user_msg = await bot.send_message(
+            chat_id=user_id,
+            text=receipt,
+            parse_mode="HTML",
+            reply_markup=receipt_kb
+        )
+    else:
+        user_msg = await event.answer(
+            text=receipt,
+            parse_mode="HTML",
+            reply_markup=receipt_kb
+        )
 
     # 60 soniyalik bekor qilish hisoblagichini boshlash
     await start_order_cancel_window(
-        bot=call.bot,
+        bot=bot,
         order_id=order_id,
         user_id=user_id,
         user_chat_id=user_msg.chat.id,
@@ -721,7 +847,13 @@ async def process_payment_method(call: types.CallbackQuery, state: FSMContext):
         duration=60
     )
 
-    # 6. FSM holatini yakunlash
+    # Asosiy menyu klaviaturasini chiqarish
+    await bot.send_message(
+        chat_id=user_id,
+        text="Yoqimli ishtaha tilaymiz! 😋",
+        reply_markup=get_main_menu_keyboard(lang, user_id=user_id)
+    )
+
     await state.finish()
 
 
@@ -740,16 +872,21 @@ async def cancel_order_handler(event: types.CallbackQuery or types.Message, stat
     if current_state is not None:
         await state.finish()
 
-    cancel_msg = f"{get_text('order_cancelled', lang)}\n\n{get_text('main_menu', lang)}"
+    cancel_msg = (
+        "❌ <b>Buyurtma bekor qilindi.</b>\n\n"
+        "Asosiy menyuga qaytdingiz. Taom tanlash uchun «🍽 Menyu» tugmasini bosing:"
+    )
+    main_kb = get_main_menu_keyboard(lang, user_id=user_id)
 
     if isinstance(event, types.CallbackQuery):
         await event.answer()
         try:
-            await event.message.edit_text(cancel_msg)
+            await event.message.delete()
         except Exception:
-            await event.message.answer(cancel_msg, reply_markup=ReplyKeyboardRemove())
+            pass
+        await event.message.answer(cancel_msg, reply_markup=main_kb, parse_mode="HTML")
     else:
-        await event.answer(cancel_msg, reply_markup=ReplyKeyboardRemove())
+        await event.answer(cancel_msg, reply_markup=main_kb, parse_mode="HTML")
 
 
 # ==========================================
@@ -792,10 +929,15 @@ def register_order_handlers(dp: Dispatcher):
         state="*"
     )
 
-    # 2. Yetkazib berish turi
+    # 2. Yetkazib berish turi (Callback & Reply)
     dp.register_callback_query_handler(
         process_delivery_type,
         lambda c: c.data.startswith("delivery_type:"),
+        state=OrderStates.waiting_for_delivery_type
+    )
+    dp.register_message_handler(
+        process_delivery_type_message,
+        content_types=types.ContentTypes.TEXT,
         state=OrderStates.waiting_for_delivery_type
     )
 
@@ -849,10 +991,15 @@ def register_order_handlers(dp: Dispatcher):
         state=OrderStates.waiting_for_promo
     )
 
-    # 6. To'lov turi
+    # 6. To'lov turi (Callback & Reply)
     dp.register_callback_query_handler(
         process_payment_method,
         lambda c: c.data.startswith("pay_method:"),
+        state=OrderStates.waiting_for_payment_method
+    )
+    dp.register_message_handler(
+        process_payment_method_message,
+        content_types=types.ContentTypes.TEXT,
         state=OrderStates.waiting_for_payment_method
     )
 
@@ -863,12 +1010,46 @@ def register_order_handlers(dp: Dispatcher):
         state="*"
     )
 
+    # 7.1. To'lovni tekshirish
+    dp.register_callback_query_handler(
+        callback_check_payment,
+        lambda c: c.data.startswith("chk_pay_"),
+        state="*"
+    )
+
     # 8. Mijoz baholashi (1-5 yulduz)
     dp.register_callback_query_handler(
         callback_rate_order,
         lambda c: c.data.startswith("rate_"),
         state="*"
     )
+
+
+async def callback_check_payment(call: types.CallbackQuery):
+    """Mijoz tomonidan to'lov amalga oshirilganligini tekshirish."""
+    try:
+        order_id = int(call.data.split("_")[-1])
+    except Exception:
+        await call.answer("Xatolik yuz berdi.", show_alert=True)
+        return
+
+    from database import get_order_by_id
+    order = await get_order_by_id(order_id)
+    if not order:
+        await call.answer("Buyurtma topilmadi.", show_alert=True)
+        return
+
+    if order.get("payment_status") == "paid":
+        await call.answer("✅ To'lovingiz tasdiqlandi! Buyurtma oshxonaga yuborildi.", show_alert=True)
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+    else:
+        await call.answer(
+            "⏳ To'lov hali qabul qilinmadi yoki tasdiqlanmadi.\nIltimos, to'lovni Click yoki Payme orqali yakunlang.",
+            show_alert=True
+        )
 
 
 async def callback_user_cancel_order(call: types.CallbackQuery):

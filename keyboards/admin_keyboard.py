@@ -30,20 +30,19 @@ def get_admin_reply_kb() -> ReplyKeyboardMarkup:
 def get_admin_dashboard_kb() -> InlineKeyboardMarkup:
     """Jonli boshqaruv paneli (Dashboard) inline klaviaturasi."""
     kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
+    kb.row(
         InlineKeyboardButton("📦 Buyurtmalar", callback_data="admin:orders:all:1"),
         InlineKeyboardButton("📊 Statistika", callback_data="admin:analytics")
     )
-    kb.add(
-        InlineKeyboardButton("🍔 Mahsulotlar (Menyu)", callback_data="admin:products:all"),
+    kb.row(
+        InlineKeyboardButton("🍔 Menyu boshqaruvi", callback_data="admin:products:all"),
         InlineKeyboardButton("🎟 Promokodlar", callback_data="admin:promos")
     )
-    kb.add(
+    kb.row(
         InlineKeyboardButton("📢 Xabar tarqatish", callback_data="admin:broadcast"),
-        InlineKeyboardButton("📥 CSV Eksport", callback_data="admin:export")
+        InlineKeyboardButton("📥 Excel hisobot", callback_data="admin:export")
     )
-    kb.add(
-        InlineKeyboardButton("⭐ Oxirgi fikrlar", callback_data="admin:feedbacks:1"),
+    kb.row(
         InlineKeyboardButton("🔄 Yangilash", callback_data="admin:refresh_dashboard")
     )
     return kb
@@ -262,8 +261,8 @@ def get_export_kb() -> InlineKeyboardMarkup:
 def get_kitchen_channel_kb(order_id: int) -> InlineKeyboardMarkup:
     """Oshxona kanalidagi yangi buyurtma tugmalari."""
     kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton("👨‍🍳 Qabul qilish (Tayyorlash)", callback_data=f"kitchen:accept:{order_id}"),
+    kb.row(
+        InlineKeyboardButton("✅ Buyurtmani qabul qilish", callback_data=f"kitchen:accept:{order_id}"),
         InlineKeyboardButton("❌ Bekor qilish", callback_data=f"kitchen:cancel:{order_id}")
     )
     return kb

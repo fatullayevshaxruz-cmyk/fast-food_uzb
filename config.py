@@ -1,0 +1,31 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
+BOT_TOKEN = os.getenv("BOT_TOKEN", "9054732573:AAEbllPQYRCOcDOxeHGTyQqVHWI_wqz3FAY")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "1233117662"))
+ADMIN_CHANNEL_ID = int(os.getenv("ADMIN_CHANNEL_ID", "-1004376258203"))
+BRANCH_1_CHANNEL_ID = int(os.getenv("BRANCH_1_CHANNEL_ID", "-1004376258203"))
+DELIVERY_CHANNEL_ID = int(os.getenv("DELIVERY_CHANNEL_ID", "-1003957592099"))
+
+# Ish vaqti sozlamalari (Toshkent vaqti UTC+5)
+WORKING_HOURS_START = int(os.getenv("WORKING_HOURS_START", "9"))
+WORKING_HOURS_END = int(os.getenv("WORKING_HOURS_END", "23"))
+
+# Yetkazib berish sozlamalari
+MIN_ORDER_AMOUNT = int(os.getenv("MIN_ORDER_AMOUNT", "30000"))
+DELIVERY_BASE_FEE = int(os.getenv("DELIVERY_BASE_FEE", "10000"))
+DELIVERY_EXTRA_PER_KM = int(os.getenv("DELIVERY_EXTRA_PER_KM", "2000"))
+DELIVERY_FREE_KM = float(os.getenv("DELIVERY_FREE_KM", "3.0"))
+MAX_DELIVERY_RADIUS_KM = float(os.getenv("MAX_DELIVERY_RADIUS_KM", "15.0"))
+
+# Standart restoran lokatsiyasi
+RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "41.311081"))
+RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "69.240562"))
+
+# Database
+DATABASE_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "fastfood.db"))
+DATABASE_URL = os.getenv("DATABASE_URL")

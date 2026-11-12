@@ -2,6 +2,31 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 from typing import List, Dict, Any, Optional
 
 
+def get_admin_reply_kb() -> ReplyKeyboardMarkup:
+    """1-rasmdagi pastki Reply klaviatura joyiga chiqadigan Admin Panel tugmalari."""
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.row(
+        KeyboardButton("📦 Buyurtmalar"),
+        KeyboardButton("📊 Statistika")
+    )
+    kb.row(
+        KeyboardButton("🍔 Mahsulotlar"),
+        KeyboardButton("🎟 Promokodlar")
+    )
+    kb.row(
+        KeyboardButton("📢 Xabar tarqatish"),
+        KeyboardButton("📥 CSV Eksport")
+    )
+    kb.row(
+        KeyboardButton("⭐ Oxirgi fikrlar"),
+        KeyboardButton("🔄 Yangilash")
+    )
+    kb.row(
+        KeyboardButton("🔙 Asosiy menyuga qaytish")
+    )
+    return kb
+
+
 def get_admin_dashboard_kb() -> InlineKeyboardMarkup:
     """Jonli boshqaruv paneli (Dashboard) inline klaviaturasi."""
     kb = InlineKeyboardMarkup(row_width=2)

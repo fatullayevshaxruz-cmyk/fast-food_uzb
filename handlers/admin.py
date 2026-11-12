@@ -44,6 +44,7 @@ from database import (
     get_all_users_count
 )
 from keyboards.admin_keyboard import (
+    get_admin_reply_kb,
     get_admin_dashboard_kb,
     get_orders_filter_kb,
     get_order_detail_kb,
@@ -170,13 +171,168 @@ async def send_customer_status_notification(bot, user_id: int, order_id: int, ne
 # ==========================================
 
 async def cmd_admin(message: types.Message):
-    """Admin panelga /admin yoki tugma orqali kirish."""
+    """Admin panelga /admin yoki tugma orqali kirish (1-rasmdagi pastki Reply klaviatura chiqadi)."""
     if not is_admin(message.from_user.id):
         await message.answer("⛔️ Kechirasiz, sizda admin huquqlari mavjud emas!")
         return
 
     dashboard_text = await generate_dashboard_text()
-    await message.answer(dashboard_text, reply_markup=get_admin_dashboard_kb(), parse_mode="HTML")
+    # 1-rasmdagi pastki klaviatura joyiga Admin tugmalari chiqadi!
+    await message.answer(dashboard_text, reply_markup=get_admin_reply_kb(), parse_mode="HTML")
+
+
+async def admin_reply_refresh(message: types.Message):
+    """Pastki '🔄 Yangilash' tugmasi bosilganda."""
+    if not is_admin(message.from_user.id):
+        return
+    dashboard_text = await generate_dashboard_text()
+    await message.answer(dashboard_text, reply_markup=get_admin_reply_kb(), parse_mode="HTML")
+
+
+async def admin_reply_orders(message: types.Message):
+    """Pastki '📦 Buyurtmalar' tugmasi bosilganda."""
+    if not is_admin(message.from_user.id):
+        return
+    orders, total_count = await get_orders_by_status(status="all", page=1, limit=6)
+    total_pages = (total_count + 6 - 1) // 6
+    text = (
+        f"📦 <b>BUYURTMALAR BOSHQARUVI</b>\n"
+        f"Filtr: <b>Barcha buyurtmalar</b> (Jami: {total_count} ta)\n"
+        f"<i>Batafsil ko'rish uchun buyurtma tugmasini bosing:</i>"
+    )
+    await message.answer(text, reply_markup=get_orders_filter_kb("all", orders, 1, total_pages), parse_mode="HTML")
+
+
+async def admin_reply_analytics(message: types.Message):
+    """Pastki '📊 Statistika' tugmasi bosilganda."""
+    if not is_admin(message.from_user.id):
+        return
+    stats = await get_analytics_stats(days=7)
+    top_products = await get_top_products(limit=5)
+    avg_rating, rating_count = await get_average_rating_and_count()
+
+    top_text = ""
+    for idx, p in enumerate(top_products, 1):
+        top_text += f"{idx}. <b>{p['product_name']}</b>: {p['total_qty']} dona (<i>{p['total_sum']:,} so'm</i>)\n"
+    if not top_text:
+        top_text = "<i>Hozircha sotuvlar mavjud emas</i>\n"
+
+    text = (
+        f"📊 <b>CHUQURLASHTIRILGAN ANALITIKA VA STATISTIKA</b>\n"
+        f"Davr: <b>Oxirgi 7 kunlik</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"💰 <b>Jami tushum:</b> <b>{stats['revenue']:,} so'm</b>\n"
+        f"📦 <b>Jami buyurtmalar soni:</b> <b>{stats['orders_count']} ta</b>\n"
+        f"⭐ <b>Mijozlar o'rtacha bahosi:</b> <b>{avg_rating} / 5.0</b> ({rating_count} ta fikr)\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🍔 <b>ENG KO'P SOTILGAN TOP-5 MAHSULOT:</b>\n"
+        f"{top_text}"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+    await message.answer(text, reply_markup=get_analytics_kb(), parse_mode="HTML")
+
+
+async def admin_reply_products(message: types.Message):
+    """Pastki '🍔 Mahsulotlar' tugmasi bosilganda."""
+    if not is_admin(message.from_user.id):
+        return
+    products = await get_all_products()
+    await message.answer(
+        "🍔 <b>MAHSULOTLAR VA MENYU BOSHQARUVI</b>\n\n"
+        "Mahsulotni tahrirlash, stop-listga qo'shish yoki narxini o'zgartirish uchun ustiga bosing:",
+        reply_markup=get_products_admin_kb(products),
+        parse_mode="HTML"
+    )
+
+
+async def admin_reply_promos(message: types.Message):
+    """Pastki '🎟 Promokodlar' tugmasi bosilganda."""
+    if not is_admin(message.from_user.id):
+        return
+    promos = await get_all_promos()
+    await message.answer(
+        "🎟 <b>PROMOKODLAR TIZIMI</b>\n\n"
+        "Mavjud promokodlar ro'yxati va boshqaruvi:",
+        reply_markup=get_promos_admin_kb(promos),
+        parse_mode="HTML"
+    )
+
+
+async def admin_reply_broadcast(message: types.Message, state: FSMContext):
+    """Pastki '📢 Xabar tarqatish' tugmasi bosilganda."""
+    if not is_admin(message.from_user.id):
+        return
+    total_users = await get_all_users_count()
+    await AdminBroadcast.waiting_for_content.set()
+    await message.answer(
+        f"📢 <b>OMMAVIY XABAR TARQATISH</b>\n\n"
+        f"Hozirda botda jami <b>{total_users} nafar</b> foydalanuvchi mavjud.\n\n"
+        f"Tarqatmoqchi bo'lgan xabaringizni yuboring (Matn, rasm, video yoki havola):",
+        parse_mode="HTML"
+    )
+
+
+async def admin_reply_export(message: types.Message):
+    """Pastki '📥 CSV Eksport' tugmasi bosilganda."""
+    if not is_admin(message.from_user.id):
+        return
+    await message.answer(
+        "📥 <b>BUXGALTERIYA VA HISOBOTLAR EKSPORTI</b>\n\n"
+        "Buyurtmalar tarixini Excel/CSV formatida yuklab olish uchun davrni tanlang:",
+        reply_markup=get_export_kb(),
+        parse_mode="HTML"
+    )
+
+
+async def admin_reply_feedbacks(message: types.Message):
+    """Pastki '⭐ Oxirgi fikrlar' tugmasi bosilganda."""
+    if not is_admin(message.from_user.id):
+        return
+    feedbacks, total_count = await get_feedbacks(page=1, limit=5)
+    total_pages = (total_count + 5 - 1) // 5
+    if not feedbacks:
+        await message.answer("⭐ Hozircha fikrlar mavjud emas.", reply_markup=get_analytics_kb())
+        return
+
+    text = f"⭐ <b>MIJOZLAR FIKRLARI ({total_count} ta):</b>\n━━━━━━━━━━━━━━━━━━━━\n\n"
+    for f in feedbacks:
+        stars = "⭐" * int(f.get("rating", 5))
+        name = f.get("full_name") or "Mijoz"
+        phone = f.get("phone") or "-"
+        comment = f.get("comment") or "<i>Izoh qoldirilmagan</i>"
+        time_str = f.get("created_at", "")[:16]
+        text += (
+            f"👤 <b>{name}</b> ({phone})\n"
+            f"Baho: {stars} ({f.get('rating')}/5)\n"
+            f"💬 Izoh: {comment}\n"
+            f"🕒 {time_str}\n"
+            f"────────────────────\n"
+        )
+    await message.answer(text, reply_markup=get_feedbacks_page_kb(1, total_pages), parse_mode="HTML")
+
+
+async def admin_reply_back_main(message: types.Message):
+    """Pastki '🔙 Asosiy menyuga qaytish' tugmasi bosilganda oddiy mijoz menyusiga qaytaradi."""
+    from config import WEB_APP_URL
+    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(
+        KeyboardButton(
+            text="🍔 Menyu & Buyurtma berish",
+            web_app=WebAppInfo(url=WEB_APP_URL)
+        )
+    )
+    kb.add(
+        KeyboardButton(text="🛒 Savatcha"),
+        KeyboardButton(text="ℹ️ Biz haqimizda")
+    )
+    kb.add(KeyboardButton(text="🛠 Admin Panel"))
+
+    await message.answer(
+        "Asosiy menyuga qaytdingiz. Taomlarni tanlash uchun Web App ni ochishingiz mumkin:",
+        reply_markup=kb
+    )
 
 
 async def callback_refresh_dashboard(call: types.CallbackQuery):
@@ -1091,9 +1247,19 @@ async def process_feedback_comment(message: types.Message, state: FSMContext):
 def register_admin_handlers(dp: Dispatcher):
     """Barcha admin handlerlarini ro'yxatga oladi."""
 
-    # 1. Dashboard
+    # 1. Dashboard va Reply Klaviatura (1-rasm joyiga chiqadigan tugmalar)
     dp.register_message_handler(cmd_admin, commands=["admin"], state="*")
     dp.register_message_handler(cmd_admin, lambda m: m.text in ["🛠 Admin Panel", "Admin Panel"], state="*")
+    dp.register_message_handler(admin_reply_orders, lambda m: m.text in ["📦 Buyurtmalar", "Buyurtmalar"], state="*")
+    dp.register_message_handler(admin_reply_analytics, lambda m: m.text in ["📊 Statistika", "Statistika"], state="*")
+    dp.register_message_handler(admin_reply_products, lambda m: m.text in ["🍔 Mahsulotlar", "Mahsulotlar"], state="*")
+    dp.register_message_handler(admin_reply_promos, lambda m: m.text in ["🎟 Promokodlar", "Promokodlar"], state="*")
+    dp.register_message_handler(admin_reply_broadcast, lambda m: m.text in ["📢 Xabar tarqatish", "Xabar tarqatish"], state="*")
+    dp.register_message_handler(admin_reply_export, lambda m: m.text in ["📥 CSV Eksport", "CSV Eksport"], state="*")
+    dp.register_message_handler(admin_reply_feedbacks, lambda m: m.text in ["⭐ Oxirgi fikrlar", "Oxirgi fikrlar"], state="*")
+    dp.register_message_handler(admin_reply_refresh, lambda m: m.text in ["🔄 Yangilash", "Yangilash"], state="*")
+    dp.register_message_handler(admin_reply_back_main, lambda m: m.text in ["🔙 Asosiy menyuga qaytish", "Asosiy menyuga qaytish"], state="*")
+
     dp.register_callback_query_handler(callback_refresh_dashboard, lambda c: c.data in ["admin:dashboard", "admin:refresh_dashboard"], state="*")
 
     # 2. Analitika va Fikrlar

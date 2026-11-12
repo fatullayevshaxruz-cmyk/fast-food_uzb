@@ -264,3 +264,4 @@ def get_text(key: str, lang: str = "uz", **kwargs) -> str:
         except Exception:
             return phrase
     return phrase
+

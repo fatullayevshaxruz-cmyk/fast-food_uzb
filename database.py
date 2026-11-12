@@ -1,10 +1,142 @@
 import aiosqlite
 import logging
-from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 from config import DATABASE_PATH, RESTAURANT_LAT, RESTAURANT_LON, ADMIN_CHANNEL_ID
 
 logger = logging.getLogger(__name__)
+
+# Boshlang'ich kategoriyalar va mahsulotlar (Yuqori sifatli rasmlar bilan)
+INITIAL_PRODUCTS = [
+    # Burgerlar
+    {
+        "category": "burgers",
+        "name": "Cheeseburger Double Black",
+        "price": 42000,
+        "description": "2 qavat xushbo'y mol go'shti, erigan cheddar pishlog'i, maxsus sous va tuzlangan bodring",
+        "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+        "badge": "🔥 Hit"
+    },
+    {
+        "category": "burgers",
+        "name": "Chicken Crispy Burger",
+        "price": 34000,
+        "description": "Qarsildoq tovuq filesi, aysberg salati, yangi pomidor va yengil mayonez",
+        "image": "https://images.unsplash.com/photo-1625813506062-0aeb1d7a094b?auto=format&fit=crop&w=600&q=80",
+        "badge": ""
+    },
+    {
+        "category": "burgers",
+        "name": "Barbecue Bacon Burger",
+        "price": 46000,
+        "description": "Mol go'shti kotleti, qarsildoq bekon, dudlangan BBQ sousi va qovurilgan piyoz",
+        "image": "https://images.unsplash.com/photo-1553979459-d2229ba7433b?auto=format&fit=crop&w=600&q=80",
+        "badge": "Yangi"
+    },
+
+    # Lavash & Shaurma
+    {
+        "category": "lavash",
+        "name": "Mol go'shtli Lavash Standart",
+        "price": 36000,
+        "description": "Yumshoq xamir, mayin mol go'shti, pomidor, bodring, maxsus chipslar va tomat sousi",
+        "image": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=600&q=80",
+        "badge": "🔥 Hit"
+    },
+    {
+        "category": "lavash",
+        "name": "Pishloqli Tovuq Lavash",
+        "price": 38000,
+        "description": "Tandirda pishgan tovuq go'shti, erigan motsarella pishlog'i, yashil ko'katlar va sous",
+        "image": "https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=600&q=80",
+        "badge": ""
+    },
+    {
+        "category": "lavash",
+        "name": "Shaurma Mini (Doner)",
+        "price": 28000,
+        "description": "Pita nonida mol go'shti doneri, yangi sabzavotlar va sarimsoqli sous",
+        "image": "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=600&q=80",
+        "badge": ""
+    },
+
+    # Pizzalar
+    {
+        "category": "pizza",
+        "name": "Pizza Pepperoni Maxi",
+        "price": 68000,
+        "description": "Italyancha ingichka xamir, ko'p miqdorda pepperoni kolbasasi va motsarella pishlog'i",
+        "image": "https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=600&q=80",
+        "badge": "🔥 Hit"
+    },
+    {
+        "category": "pizza",
+        "name": "Pizza 4 Pishloq (Quattro Formaggi)",
+        "price": 72000,
+        "description": "Motsarella, gorgonzola, parmezan va cheddar pishloqlarining ajoyib uyg'unligi",
+        "image": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80",
+        "badge": ""
+    },
+    {
+        "category": "pizza",
+        "name": "Pizza Kombi Go'shtli",
+        "price": 75000,
+        "description": "Mol go'shti, tovuq filesi, ovchi kolbasalari, shirin bulg'or qalampiri va zaytun",
+        "image": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=600&q=80",
+        "badge": "To'yimli"
+    },
+
+    # Gazaklar
+    {
+        "category": "snacks",
+        "name": "Oltin Kartoshka Fri",
+        "price": 16000,
+        "description": "Tashqarisi qarsildoq, ichi mayin oltin rangli kartoshka fri",
+        "image": "https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&w=600&q=80",
+        "badge": "Mashhur"
+    },
+    {
+        "category": "snacks",
+        "name": "Tovuq Qanotchalari BBQ (6 dona)",
+        "price": 32000,
+        "description": "Maxsus marinadlangan va qizartirib pishirilgan tovuq qanotchalari",
+        "image": "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=600&q=80",
+        "badge": "Achchiq"
+    },
+    {
+        "category": "snacks",
+        "name": "Pishloqli Naggets (8 dona)",
+        "price": 26000,
+        "description": "Motsarella pishlog'i bilan to'ldirilgan nozik tovuq naggetslari",
+        "image": "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=600&q=80",
+        "badge": ""
+    },
+
+    # Ichimliklar
+    {
+        "category": "drinks",
+        "name": "Coca-Cola Original 0.5L",
+        "price": 9000,
+        "description": "Muzdek salqin va tetiklashtiruvchi klassik ichimlik",
+        "image": "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80",
+        "badge": ""
+    },
+    {
+        "category": "drinks",
+        "name": "Yalpizli Yangi Mojito 0.4L",
+        "price": 18000,
+        "description": "Laym, yangi yalpiz barglari va yaxna muzli limonad",
+        "image": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80",
+        "badge": "Yozgi"
+    },
+    {
+        "category": "drinks",
+        "name": "Fanta Orange 0.5L",
+        "price": 9000,
+        "description": "Yorqin apelsin ta'mli tetiklantiruvchi gazlangan ichimlik",
+        "image": "https://images.unsplash.com/photo-1624517452488-04869289c4ca?auto=format&fit=crop&w=600&q=80",
+        "badge": ""
+    }
+]
 
 
 async def init_db():
@@ -35,13 +167,16 @@ async def init_db():
             );
         """)
 
-        # Mahsulotlar jadvali
+        # Mahsulotlar jadvali (image, category, badge ustunlari bilan)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category TEXT DEFAULT 'burgers',
                 name TEXT NOT NULL,
                 price INTEGER NOT NULL,
                 description TEXT,
+                image TEXT,
+                badge TEXT DEFAULT '',
                 is_available INTEGER DEFAULT 1
             );
         """)
@@ -78,7 +213,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
-                delivery_type TEXT NOT NULL, -- 'eat_in' yoki 'delivery'
+                delivery_type TEXT NOT NULL,
                 table_number INTEGER,
                 address TEXT,
                 lat REAL,
@@ -94,7 +229,7 @@ async def init_db():
                 delivery_fee INTEGER DEFAULT 0,
                 final_total INTEGER NOT NULL,
                 payment_method TEXT DEFAULT 'cash',
-                status TEXT DEFAULT 'new', -- 'new', 'accepted', 'preparing', 'delivering', 'completed', 'cancelled'
+                status TEXT DEFAULT 'new',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
@@ -115,7 +250,7 @@ async def init_db():
 
         await db.commit()
 
-        # Standart filiallar mavjudligini tekshirish
+        # Standart filiallar
         async with db.execute("SELECT COUNT(*) FROM branches") as cursor:
             count = (await cursor.fetchone())[0]
             if count == 0:
@@ -128,22 +263,20 @@ async def init_db():
                 """, (RESTAURANT_LAT, RESTAURANT_LON, ADMIN_CHANNEL_ID, ADMIN_CHANNEL_ID, ADMIN_CHANNEL_ID))
                 await db.commit()
 
-        # Standart mahsulotlar mavjudligini tekshirish
+        # Mahsulotlarni rasmlari bilan kiritish / yangilash
         async with db.execute("SELECT COUNT(*) FROM products") as cursor:
             prod_count = (await cursor.fetchone())[0]
-            if prod_count == 0:
-                await db.execute("""
-                    INSERT INTO products (name, price, description)
-                    VALUES 
-                    ('Cheeseburger Maxi', 35000, 'Katta mol go''shti kotleti, pishloq, bodring, maxsus sous'),
-                    ('Lavash Standart (Mol go''shti)', 32000, 'Mol go''shti, pomidor, bodring, chipslar, mayonez'),
-                    ('Pizza Pepperoni 30cm', 65000, 'Pepperoni kolbasasi, motsarella, tomat sousi'),
-                    ('Fri kartoshkasi', 15000, 'Qarsildoq kartoshka fri va sous'),
-                    ('Coca-Cola 0.5L', 8000, 'Muzdek Coca-Cola')
-                """)
+            if prod_count < 10:
+                # Eski yoki bo'sh jadvallarni yangi rasmli ro'yxat bilan boyitamiz
+                await db.execute("DELETE FROM products;")
+                for p in INITIAL_PRODUCTS:
+                    await db.execute("""
+                        INSERT INTO products (category, name, price, description, image, badge, is_available)
+                        VALUES (?, ?, ?, ?, ?, ?, 1)
+                    """, (p["category"], p["name"], p["price"], p["description"], p["image"], p.get("badge", "")))
                 await db.commit()
 
-        # Standart test promokodlarini kiritish
+        # Standart promokodlar
         async with db.execute("SELECT COUNT(*) FROM promos") as cursor:
             promo_count = (await cursor.fetchone())[0]
             if promo_count == 0:
@@ -151,17 +284,16 @@ async def init_db():
                     INSERT INTO promos (code, discount_percent, min_order_amount, usage_limit, is_active)
                     VALUES 
                     ('FAST10', 10, 30000, 100, 1),
-                    ('YANGI20', 20, 50000, 50, 1)
+                    ('MAZZALI20', 20, 50000, 50, 1)
                 """)
                 await db.commit()
 
-    logger.info("Database initialized successfully.")
+    logger.info("Database initialized with rich products successfully.")
 
 
 # ---------------- Foydalanuvchilar bilan ishlash ----------------
 
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
-    """Foydalanuvchini id bo'yicha oladi."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)) as cursor:
@@ -170,9 +302,8 @@ async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
 
 
 async def save_or_update_user(user_id: int, full_name: str = None, phone: str = None, language_code: str = None):
-    """Foydalanuvchi ma'lumotlarini kiritadi yoki yangilaydi."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
-        async with db.execute("SELECT user_id, phone, language_code FROM users WHERE user_id = ?", (user_id,)) as cursor:
+        async with db.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,)) as cursor:
             existing = await cursor.fetchone()
 
         if existing:
@@ -201,14 +332,24 @@ async def save_or_update_user(user_id: int, full_name: str = None, phone: str = 
         await db.commit()
 
 
+# ---------------- Mahsulotlar ro'yxatini olish ----------------
+
+async def get_all_products() -> List[Dict[str, Any]]:
+    """Barcha mavjud mahsulotlarni kategoriyasi bo'yicha oladi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM products WHERE is_available = 1 ORDER BY id ASC") as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+
 # ---------------- Savat bilan ishlash ----------------
 
 async def get_cart_items(user_id: int) -> List[Dict[str, Any]]:
-    """Foydalanuvchi savatidagi mahsulotlar ro'yxatini qaytaradi."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         query = """
-            SELECT c.product_id, p.name, p.price, c.quantity, (p.price * c.quantity) as total_price
+            SELECT c.product_id, p.name, p.price, p.image, c.quantity, (p.price * c.quantity) as total_price
             FROM cart c
             JOIN products p ON c.product_id = p.id
             WHERE c.user_id = ?
@@ -219,14 +360,12 @@ async def get_cart_items(user_id: int) -> List[Dict[str, Any]]:
 
 
 async def clear_cart(user_id: int):
-    """Foydalanuvchi savatini tozalaydi."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute("DELETE FROM cart WHERE user_id = ?", (user_id,))
         await db.commit()
 
 
 async def add_to_cart(user_id: int, product_id: int, quantity: int = 1):
-    """Savatga mahsulot qo'shadi."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute("""
             INSERT INTO cart (user_id, product_id, quantity)
@@ -236,13 +375,24 @@ async def add_to_cart(user_id: int, product_id: int, quantity: int = 1):
         await db.commit()
 
 
+async def set_cart_items(user_id: int, items: List[Dict[str, Any]]):
+    """Web App dan kelgan butun savatni to'liq yangilaydi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("DELETE FROM cart WHERE user_id = ?", (user_id,))
+        for it in items:
+            p_id = it.get("product_id") or it.get("id")
+            qty = it.get("quantity") or it.get("count", 1)
+            if p_id and qty > 0:
+                await db.execute("""
+                    INSERT INTO cart (user_id, product_id, quantity)
+                    VALUES (?, ?, ?)
+                """, (user_id, p_id, qty))
+        await db.commit()
+
+
 # ---------------- Promokod bilan ishlash ----------------
 
 async def check_promo_code(code: str, order_amount: int) -> Tuple[bool, Optional[Dict[str, Any]], str]:
-    """
-    Promokodni tekshiradi.
-    Qaytaradi: (is_valid, promo_data, error_reason)
-    """
     clean_code = code.strip().upper()
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -266,20 +416,14 @@ async def check_promo_code(code: str, order_amount: int) -> Tuple[bool, Optional
 
 
 async def mark_promo_used(promo_id: int):
-    """Promokod ishlatilganligini qayd etadi."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute("""
-            UPDATE promos 
-            SET used_count = used_count + 1 
-            WHERE id = ?
-        """, (promo_id,))
+        await db.execute("UPDATE promos SET used_count = used_count + 1 WHERE id = ?", (promo_id,))
         await db.commit()
 
 
 # ---------------- Filiallar ----------------
 
 async def get_active_branches() -> List[Dict[str, Any]]:
-    """Barcha faol filiallar ro'yxatini qaytaradi."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute("SELECT * FROM branches WHERE is_active = 1") as cursor:
@@ -309,10 +453,6 @@ async def create_order(
     payment_method: str,
     items: List[Dict[str, Any]]
 ) -> int:
-    """
-    Buyurtmani va uning mahsulotlarini bazaga tranzaksiya bilan yozadi.
-    Order ID ni qaytaradi.
-    """
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute("BEGIN TRANSACTION;")
         cursor = await db.execute("""
@@ -336,11 +476,11 @@ async def create_order(
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (
                 order_id,
-                item.get("product_id"),
+                item.get("product_id") or item.get("id"),
                 item.get("name", "Noma'lum mahsulot"),
                 item.get("price", 0),
                 item.get("quantity", 1),
-                item.get("total_price", 0)
+                item.get("total_price", item.get("price", 0) * item.get("quantity", 1))
             ))
 
         await db.commit()

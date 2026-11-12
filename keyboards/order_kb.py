@@ -82,3 +82,4 @@ def get_payment_method_kb(lang: str = "uz") -> InlineKeyboardMarkup:
         InlineKeyboardButton(text=get_text("btn_cancel", lang), callback_data="cancel_order")
     )
     return kb
+

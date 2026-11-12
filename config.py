@@ -26,6 +26,11 @@ MAX_DELIVERY_RADIUS_KM = float(os.getenv("MAX_DELIVERY_RADIUS_KM", "15.0"))
 RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "41.311081"))
 RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "69.240562"))
 
+# Web App / Server sozlamalari
+WEB_APP_URL = os.getenv("WEB_APP_URL", os.getenv("RENDER_URL", "https://fast-food-1-p4bx.onrender.com"))
+PORT = int(os.getenv("PORT", "8080"))
+
 # Database
 DATABASE_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "fastfood.db"))
 DATABASE_URL = os.getenv("DATABASE_URL")
+

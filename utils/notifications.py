@@ -101,3 +101,4 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
             logger.info(f"Courier notification sent to {DELIVERY_CHANNEL_ID} for order #{order_id}")
         except Exception as e:
             logger.error(f"Error sending courier notification to {DELIVERY_CHANNEL_ID}: {e}")
+

@@ -1,10 +1,19 @@
 import logging
 import asyncio
+from pathlib import Path
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    WebAppInfo,
+    MenuButtonWebApp
+)
+from aiohttp import web
 
-from config import BOT_TOKEN
+from config import BOT_TOKEN, WEB_APP_URL, PORT
 from database import (
     init_db,
     save_or_update_user,
@@ -28,12 +37,75 @@ bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+
+
+# ---------------- WEB APP SERVER (STATIC FILES) ----------------
+async def start_web_server():
+    """Web App statik sahifalarini beruvchi aiohttp veb-server."""
+    app = web.Application()
+
+    async def index_handler(request):
+        index_file = STATIC_DIR / "index.html"
+        return web.FileResponse(index_file)
+
+    async def map_handler(request):
+        map_file = STATIC_DIR / "map.html"
+        return web.FileResponse(map_file)
+
+    app.router.add_get("/", index_handler)
+    app.router.add_get("/map", map_handler)
+    app.router.add_static("/static", path=str(STATIC_DIR), name="static")
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
+    logger.info(f"Web App server started at http://0.0.0.0:{PORT} (Serving {STATIC_DIR})")
+
 
 async def on_startup(dispatcher: Dispatcher):
-    """Bot ishga tushganda ma'lumotlar bazasini yuklash."""
+    """Bot ishga tushganda ma'lumotlar bazasini va veb-serverni ishga tushirish."""
     logger.info("Initializing database...")
     await init_db()
+
+    # Chatning chap pastki burchagidagi Menyu tugmasini Web App ga sozlash
+    try:
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="🍔 Menyu",
+                web_app=WebAppInfo(url=WEB_APP_URL)
+            )
+        )
+        logger.info(f"Chat Menu button configured with WebApp URL: {WEB_APP_URL}")
+    except Exception as e:
+        logger.warning(f"Could not set chat menu button: {e}")
+
+    # Web App statik serverini fonda ishga tushirish
+    try:
+        asyncio.create_task(start_web_server())
+    except Exception as e:
+        logger.warning(f"Web server start warning: {e}")
+
     logger.info("Bot is ready and listening!")
+
+
+# ---------------- ASOSIY MENYU TUGMALARI ----------------
+def get_main_menu_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
+    """Asosiy ekran Reply klaviaturasi (Katta jozibali Web App tugmasi bilan)."""
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(
+        KeyboardButton(
+            text="🍔 Menyu & Buyurtma berish",
+            web_app=WebAppInfo(url=WEB_APP_URL)
+        )
+    )
+    kb.add(
+        KeyboardButton(text="🛒 Savatcha"),
+        KeyboardButton(text="ℹ️ Biz haqimizda")
+    )
+    return kb
 
 
 # ---------------- START KOMANDASI ----------------
@@ -48,56 +120,52 @@ async def cmd_start(message: types.Message):
     await save_or_update_user(user_id=user_id, full_name=full_name, language_code=lang)
 
     text = (
-        f"Assalomu alaykum, <b>{full_name}</b>! 🍔🍕\n"
-        f"<b>Fast Food</b> yetkazib berish xizmatiga xush kelibsiz!\n\n"
-        f"Quyidagi menyudan taomlarni tanlashingiz va tez fursatda buyurtma berishingiz mumkin."
+        f"Assalomu alaykum, <b>{full_name}</b>! 🍔🍕\n\n"
+        f"<b>FastFood Express</b> – eng mazali fast-food va tezkor yetkazib berish xizmati!\n\n"
+        f"🚀 <b>Yangi interaktiv Web App</b> orqali barcha taomlar rasmlarini ko'rishingiz, "
+        f"saralashingiz va bir zumda buyurtma berishingiz mumkin.\n\n"
+        f"👇 <i>Pastdagi tugmani bosing va menyuni oching:</i>"
     )
 
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton("🍔 Menyu", callback_data="show_menu"),
-        InlineKeyboardButton("🛒 Savat", callback_data="show_cart")
-    )
-    await message.answer(text, reply_markup=kb)
-
-
-# ---------------- MENYU VA MAHSULOTLAR ----------------
-@dp.callback_query_handler(lambda c: c.data == "show_menu", state="*")
-async def show_menu(call: types.CallbackQuery):
-    await call.answer()
-    import aiosqlite
-    from config import DATABASE_PATH
-
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM products WHERE is_available = 1") as cursor:
-            products = await cursor.fetchall()
-
-    kb = InlineKeyboardMarkup(row_width=1)
-    for p in products:
-        kb.add(
-            InlineKeyboardButton(
-                f"➕ {p['name']} - {p['price']:,} so'm",
-                callback_data=f"add_cart:{p['id']}"
-            )
+    # Inline klaviatura
+    inline_kb = InlineKeyboardMarkup(row_width=1)
+    inline_kb.add(
+        InlineKeyboardButton(
+            text="✨ Web App Menyu (Taomlar va Rasmlar)",
+            web_app=WebAppInfo(url=WEB_APP_URL)
+        ),
+        InlineKeyboardButton(
+            text="🛒 Savatni ko'rish",
+            callback_data="show_cart"
         )
-    kb.add(InlineKeyboardButton("🛒 Savatga o'tish", callback_data="show_cart"))
+    )
 
-    await call.message.edit_text("📋 <b>Bizning menyu:</b>\nSavatga qo'shish uchun taomni bosing:", reply_markup=kb)
+    await message.answer(
+        text=text,
+        reply_markup=get_main_menu_keyboard(lang)
+    )
+    await message.answer("Menyuni ochish uchun tugmani bosing:", reply_markup=inline_kb)
 
 
-# ---------------- SAVATGA QO'SHISH ----------------
-@dp.callback_query_handler(lambda c: c.data.startswith("add_cart:"), state="*")
-async def add_item_to_cart(call: types.CallbackQuery):
-    product_id = int(call.data.split(":")[1])
-    user_id = call.from_user.id
-
-    await add_to_cart(user_id, product_id, 1)
-    await call.answer("✅ Mahsulot savatga qo'shildi!", show_alert=False)
+# ---------------- BIZ HAQIMIZDA VA YORDAM ----------------
+@dp.message_handler(lambda m: m.text in ["ℹ️ Biz haqimizda", "Biz haqimizda"], state="*")
+async def cmd_about(message: types.Message):
+    about_text = (
+        f"🏢 <b>FastFood Express</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📍 Bosh filial: Amir Temur ko'chasi\n"
+        f"⏰ Ish vaqti: 09:00 dan 23:00 gacha\n"
+        f"🛵 Yetkazib berish: 25-35 daqiqa (15 km radiuda)\n"
+        f"📞 Bog'lanish: +998 (71) 200-00-00\n"
+        f"🎟 Maxsus promokod: <b>FAST10</b> (-10% chegirma)\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"<i>Mazali taomlar faqat bizda!</i>"
+    )
+    await message.answer(about_text)
 
 
 # ---------------- SAVATNI KO'RISH ----------------
-@dp.message_handler(commands=["cart"], state="*")
+@dp.message_handler(lambda m: m.text in ["🛒 Savatcha", "Savatcha", "/cart"], state="*")
 @dp.callback_query_handler(lambda c: c.data == "show_cart", state="*")
 async def show_cart_handler(event: types.Message or types.CallbackQuery):
     user_id = event.from_user.id
@@ -107,7 +175,12 @@ async def show_cart_handler(event: types.Message or types.CallbackQuery):
     items = await get_cart_items(user_id)
     if not items:
         msg_text = get_text("cart_empty", lang)
-        kb = InlineKeyboardMarkup().add(InlineKeyboardButton("🍔 Menyu", callback_data="show_menu"))
+        kb = InlineKeyboardMarkup().add(
+            InlineKeyboardButton(
+                text="🍔 Menyu (Web App)",
+                web_app=WebAppInfo(url=WEB_APP_URL)
+            )
+        )
         if isinstance(event, types.CallbackQuery):
             await event.message.edit_text(msg_text, reply_markup=kb)
         else:
@@ -126,7 +199,7 @@ async def show_cart_handler(event: types.Message or types.CallbackQuery):
     )
     kb.add(
         InlineKeyboardButton("🗑 Tozalash", callback_data="clear_cart"),
-        InlineKeyboardButton("🍔 Menyu", callback_data="show_menu")
+        InlineKeyboardButton("🍔 Menyu (Web App)", web_app=WebAppInfo(url=WEB_APP_URL))
     )
 
     if isinstance(event, types.CallbackQuery):
@@ -139,7 +212,12 @@ async def show_cart_handler(event: types.Message or types.CallbackQuery):
 async def handle_clear_cart(call: types.CallbackQuery):
     await clear_cart(call.from_user.id)
     await call.answer("🗑 Savatingiz tozalandi.")
-    await show_menu(call)
+    await call.message.edit_text(
+        "🛒 Savatingiz bo'shatildi.\nTaom tanlash uchun Web App ni oching:",
+        reply_markup=InlineKeyboardMarkup().add(
+            InlineKeyboardButton("🍔 Menyuni ochish", web_app=WebAppInfo(url=WEB_APP_URL))
+        )
+    )
 
 
 # ==========================================
@@ -152,5 +230,3 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     executor.start_polling(dp, skip_updates=True, on_startup=on_startup, loop=loop)
-
-

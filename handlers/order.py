@@ -24,6 +24,7 @@ from database import (
     get_user,
     save_or_update_user,
     get_cart_items,
+    set_cart_items,
     clear_cart,
     check_promo_code,
     mark_promo_used,
@@ -94,6 +95,89 @@ async def get_user_lang(user_id: int) -> str:
 # ==========================================
 # 1. BOSHLANISH: CHECKOUT VA ISH VAQTI TEKSHIRUVI
 # ==========================================
+async def process_web_app_checkout(message: types.Message, state: FSMContext):
+    """
+    Telegram Web App orqali yuborilgan buyurtma savatini qabul qiladi
+    va bevosita FSM zanjiriga ulaydi.
+    """
+    try:
+        raw_data = message.web_app_data.data
+        data = json.loads(raw_data)
+    except Exception as e:
+        logger.error(f"Error parsing web app data: {e}")
+        return
+
+    if data.get("action") != "web_app_checkout":
+        return
+
+    user_id = message.from_user.id
+    lang = await get_user_lang(user_id)
+
+    # Ish vaqti tekshiruvi (UTC+5)
+    if not is_working_hours():
+        alert_msg = get_text(
+            "closed_alert",
+            lang,
+            start=WORKING_HOURS_START,
+            end=WORKING_HOURS_END
+        )
+        await message.answer(alert_msg)
+        return
+
+    items = data.get("items", [])
+    if not items:
+        await message.answer(get_text("cart_empty", lang))
+        return
+
+    # Savatni bazaga to'liq saqlaymiz
+    await set_cart_items(user_id, items)
+
+    items_total = data.get("items_total", 0)
+    promo_code = data.get("promo_code")
+    discount_amount = data.get("discount_amount", 0)
+    delivery_type = data.get("delivery_type", "delivery")
+
+    # FSM xotirasiga kiritish
+    await state.update_data(
+        user_id=user_id,
+        full_name=message.from_user.full_name,
+        cart_items=items,
+        items_total=items_total,
+        lang=lang,
+        promo_code=promo_code,
+        discount_amount=discount_amount,
+        delivery_type=delivery_type,
+        delivery_fee=0
+    )
+
+    # Buyurtma tarkibi haqida qisqa ma'lumot
+    summary_text = (
+        f"🍔 <b>Web App orqali buyurtmangiz qabul qilindi!</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 Mahsulotlar: <b>{items_total:,} so'm</b> ({len(items)} xil)\n"
+    )
+    if discount_amount > 0:
+        summary_text += f"🏷 Chegirma ({promo_code}): <b>-{discount_amount:,} so'm</b>\n"
+    summary_text += f"━━━━━━━━━━━━━━━━━━━━\n"
+
+    if delivery_type == "eat_in":
+        summary_text += f"📌 Turi: <b>🍽 Shu yerda (Zalda)</b>\n\n"
+        await state.update_data(delivery_fee=0)
+        await OrderStates.waiting_for_table_number.set()
+        await message.answer(
+            text=summary_text + get_text("ask_table_number", lang),
+            reply_markup=get_cancel_reply_kb(lang)
+        )
+    else:
+        # Yetkazib berish
+        summary_text += f"📌 Turi: <b>🛵 Yetkazib berish</b>\n\n"
+        await OrderStates.waiting_for_location.set()
+        await message.answer(
+            text=summary_text + get_text("ask_location", lang),
+            reply_markup=get_location_reply_kb(lang)
+        )
+
+
 async def start_checkout(call: types.CallbackQuery, state: FSMContext):
     """
     Buyurtmani rasmiylashtirish boshlanishi:
@@ -651,7 +735,14 @@ def register_order_handlers(dp: Dispatcher):
         state="*"
     )
 
-    # 1. Checkout boshlanishi
+    # 1. Web App Checkout boshlanishi
+    dp.register_message_handler(
+        process_web_app_checkout,
+        content_types=types.ContentType.WEB_APP_DATA,
+        state="*"
+    )
+
+    # 1.1. Callback orqali Checkout boshlanishi
     dp.register_callback_query_handler(
         start_checkout,
         lambda c: c.data == "checkout",
@@ -721,3 +812,4 @@ def register_order_handlers(dp: Dispatcher):
         lambda c: c.data.startswith("pay_method:"),
         state=OrderStates.waiting_for_payment_method
     )
+

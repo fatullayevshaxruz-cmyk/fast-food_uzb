@@ -153,3 +153,4 @@ async def reverse_geocode(lat: float, lon: float, lang: str = "uz") -> str:
     # Fallback: Agar tarmoqda muammo bo'lsa yoki API ishlamasa
     # Hech qachon xom koordinata yozmaymiz, tushunarli matn hosil qilamiz
     return f"Toshkent shahri, koordinata bo'yicha aniqlangan manzil"
+

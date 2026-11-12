@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: fastfood-bot-webapp
+    env: python
+    region: frankfurt
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: PORT
+        value: 8080
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: ADMIN_CHANNEL_ID
+        sync: false
+      - key: BRANCH_1_CHANNEL_ID
+        sync: false
+      - key: DELIVERY_CHANNEL_ID
+        sync: false
+      - key: WEB_APP_URL
+        sync: false

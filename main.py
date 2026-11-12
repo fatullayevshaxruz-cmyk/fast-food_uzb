@@ -13,7 +13,7 @@ from aiogram.types import (
 )
 from aiohttp import web
 
-from config import BOT_TOKEN, WEB_APP_URL, PORT
+from config import BOT_TOKEN, WEB_APP_URL, PORT, is_admin
 from database import (
     init_db,
     save_or_update_user,
@@ -29,6 +29,7 @@ from handlers.order import (
     is_working_hours,
     get_user_lang
 )
+from handlers.admin import register_admin_handlers
 from keyboards.order_kb import get_cancel_reply_kb, get_location_reply_kb
 from config import WORKING_HOURS_START, WORKING_HOURS_END
 from utils.i18n import get_text
@@ -205,8 +206,8 @@ async def on_startup(dispatcher: Dispatcher):
 
 
 # ---------------- ASOSIY MENYU TUGMALARI ----------------
-def get_main_menu_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
-    """Asosiy ekran Reply klaviaturasi (Katta jozibali Web App tugmasi bilan)."""
+def get_main_menu_keyboard(lang: str = "uz", user_id: int = None) -> ReplyKeyboardMarkup:
+    """Asosiy ekran Reply klaviaturasi (Katta jozibali Web App tugmasi va Admin tugmasi bilan)."""
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(
         KeyboardButton(
@@ -218,6 +219,9 @@ def get_main_menu_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
         KeyboardButton(text="🛒 Savatcha"),
         KeyboardButton(text="ℹ️ Biz haqimizda")
     )
+    # Agar foydalanuvchi admin bo'lsa, maxsus Admin Panel tugmasi chiqadi
+    if user_id and is_admin(user_id):
+        kb.add(KeyboardButton(text="🛠 Admin Panel"))
     return kb
 
 
@@ -255,7 +259,7 @@ async def cmd_start(message: types.Message):
 
     await message.answer(
         text=text,
-        reply_markup=get_main_menu_keyboard(lang)
+        reply_markup=get_main_menu_keyboard(lang, user_id=user_id)
     )
     await message.answer("Menyuni ochish uchun tugmani bosing:", reply_markup=inline_kb)
 
@@ -334,9 +338,10 @@ async def handle_clear_cart(call: types.CallbackQuery):
 
 
 # ==========================================
-# ORDER HANDLERLARINI RO'YXATGA OLISH
+# ORDER VA ADMIN HANDLERLARINI RO'YXATGA OLISH
 # ==========================================
 register_order_handlers(dp)
+register_admin_handlers(dp)
 
 
 if __name__ == "__main__":

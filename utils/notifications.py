@@ -2,6 +2,7 @@ import logging
 from aiogram import Bot
 from typing import Dict, Any, List
 from config import ADMIN_CHANNEL_ID, DELIVERY_CHANNEL_ID
+from keyboards.admin_keyboard import get_kitchen_channel_kb, get_courier_start_kb
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,12 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
     # Oshxona kanaliga yuborish
     target_channel = order_data.get("branch_channel_id") or ADMIN_CHANNEL_ID
     try:
-        await bot.send_message(chat_id=target_channel, text=kitchen_msg, parse_mode="HTML")
+        await bot.send_message(
+            chat_id=target_channel,
+            text=kitchen_msg,
+            parse_mode="HTML",
+            reply_markup=get_kitchen_channel_kb(order_id)
+        )
         logger.info(f"Kitchen notification sent to channel {target_channel} for order #{order_id}")
     except Exception as e:
         logger.error(f"Error sending kitchen notification to {target_channel}: {e}")
@@ -92,8 +98,12 @@ async def notify_admins_new_order(bot: Bot, order_data: Dict[str, Any], items: L
             courier_msg += f"📝 <b>Izoh:</b> {order_data.get('note')}\n"
 
         try:
-            await bot.send_message(chat_id=DELIVERY_CHANNEL_ID, text=courier_msg, parse_mode="HTML")
-            # Agar koordinatalar mavjud bo'lsa, xaritadagi joylashuvni ham yuboramiz
+            await bot.send_message(
+                chat_id=DELIVERY_CHANNEL_ID,
+                text=courier_msg,
+                parse_mode="HTML",
+                reply_markup=get_courier_start_kb(order_id)
+            )
             lat = order_data.get("lat")
             lon = order_data.get("lon")
             if lat and lon:

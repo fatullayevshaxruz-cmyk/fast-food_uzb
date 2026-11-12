@@ -248,6 +248,19 @@ async def init_db():
             );
         """)
 
+        # Fikr-mulohazalar va baholar jadvali (Feedbacks)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS feedbacks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                order_id INTEGER,
+                rating INTEGER NOT NULL,
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (user_id)
+            );
+        """)
+
         await db.commit()
 
         # Standart filiallar
@@ -485,3 +498,329 @@ async def create_order(
 
         await db.commit()
         return order_id
+
+
+# ==========================================
+# ADMIN PANEL: ANALITIKA VA DASHBOARD
+# ==========================================
+
+async def get_dashboard_stats() -> Dict[str, Any]:
+    """Jonli boshqaruv paneli (Dashboard) uchun ko'rsatkichlarni oladi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # 1. Bugungi jami buyurtmalar soni va umumiy kassa
+        async with db.execute("""
+            SELECT COUNT(*), COALESCE(SUM(final_total), 0)
+            FROM orders
+            WHERE date(created_at) = date('now') AND status != 'cancelled'
+        """) as cursor:
+            today_orders, today_revenue = await cursor.fetchone()
+
+        # 2. Faol buyurtmalar: pending / new, preparing, delivering
+        async with db.execute("""
+            SELECT 
+                COUNT(CASE WHEN status IN ('new', 'pending') THEN 1 END),
+                COUNT(CASE WHEN status = 'preparing' THEN 1 END),
+                COUNT(CASE WHEN status = 'delivering' THEN 1 END)
+            FROM orders
+            WHERE status IN ('new', 'pending', 'preparing', 'delivering')
+        """) as cursor:
+            pending_count, preparing_count, delivering_count = await cursor.fetchone()
+
+        # 3. Jami foydalanuvchilar soni
+        async with db.execute("SELECT COUNT(*) FROM users") as cursor:
+            users_count = (await cursor.fetchone())[0]
+
+        return {
+            "today_orders": today_orders or 0,
+            "today_revenue": today_revenue or 0,
+            "pending_count": pending_count or 0,
+            "preparing_count": preparing_count or 0,
+            "delivering_count": delivering_count or 0,
+            "users_count": users_count or 0
+        }
+
+
+async def get_analytics_stats(days: int = 7) -> Dict[str, Any]:
+    """Belgilangan kunlar oralig'idagi buyurtmalar va tushum statistikasi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        query = f"""
+            SELECT COUNT(*), COALESCE(SUM(final_total), 0)
+            FROM orders
+            WHERE created_at >= datetime('now', '-{days} days') AND status != 'cancelled'
+        """
+        async with db.execute(query) as cursor:
+            orders_count, revenue = await cursor.fetchone()
+
+        return {
+            "days": days,
+            "orders_count": orders_count or 0,
+            "revenue": revenue or 0
+        }
+
+
+async def get_top_products(limit: int = 5) -> List[Dict[str, Any]]:
+    """Eng ko'p sotilgan TOP mahsulotlar reytingi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        query = """
+            SELECT product_name, SUM(quantity) as total_qty, SUM(total_price) as total_sum
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.id
+            WHERE o.status != 'cancelled'
+            GROUP BY product_name
+            ORDER BY total_qty DESC
+            LIMIT ?
+        """
+        async with db.execute(query, (limit,)) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def get_average_rating_and_count() -> Tuple[float, int]:
+    """Mijozlar qoldirgan o'rtacha baho va fikrlar soni."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT COALESCE(AVG(rating), 0), COUNT(*) FROM feedbacks") as cursor:
+            avg_rating, count = await cursor.fetchone()
+            return round(avg_rating, 1), count
+
+
+async def get_feedbacks(page: int = 1, limit: int = 5) -> Tuple[List[Dict[str, Any]], int]:
+    """Mijozlarning so'nggi sharhlarini sahifalash bilan oladi."""
+    offset = (page - 1) * limit
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT COUNT(*) FROM feedbacks") as cursor:
+            total_count = (await cursor.fetchone())[0]
+
+        query = """
+            SELECT f.*, u.full_name, u.phone
+            FROM feedbacks f
+            LEFT JOIN users u ON f.user_id = u.user_id
+            ORDER BY f.created_at DESC
+            LIMIT ? OFFSET ?
+        """
+        async with db.execute(query, (limit, offset)) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows], total_count
+
+
+async def add_feedback(user_id: int, order_id: Optional[int], rating: int, comment: str = ""):
+    """Yangi fikr/baho qo'shadi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("""
+            INSERT INTO feedbacks (user_id, order_id, rating, comment)
+            VALUES (?, ?, ?, ?)
+        """, (user_id, order_id, rating, comment or ""))
+        await db.commit()
+
+
+# ==========================================
+# ADMIN PANEL: BUYURTMALAR BOSHQARUVI
+# ==========================================
+
+async def get_orders_by_status(status: Optional[str] = None, page: int = 1, limit: int = 6) -> Tuple[List[Dict[str, Any]], int]:
+    """Buyurtmalarni holat bo'yicha sahifalab oladi."""
+    offset = (page - 1) * limit
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        where_clause = ""
+        params = []
+        if status and status != "all":
+            if status in ("new", "pending"):
+                where_clause = "WHERE status IN ('new', 'pending')"
+            else:
+                where_clause = "WHERE status = ?"
+                params.append(status)
+
+        count_query = f"SELECT COUNT(*) FROM orders {where_clause}"
+        async with db.execute(count_query, tuple(params)) as cursor:
+            total_count = (await cursor.fetchone())[0]
+
+        order_query = f"""
+            SELECT * FROM orders
+            {where_clause}
+            ORDER BY id DESC
+            LIMIT ? OFFSET ?
+        """
+        params.extend([limit, offset])
+        async with db.execute(order_query, tuple(params)) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows], total_count
+
+
+async def get_order_by_id(order_id: int) -> Optional[Dict[str, Any]]:
+    """Buyurtma va uning mahsulotlarini ID bo'yicha to'liq oladi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)) as cursor:
+            order = await cursor.fetchone()
+            if not order:
+                return None
+            order_dict = dict(order)
+
+        async with db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)) as cursor:
+            items = await cursor.fetchall()
+            order_dict["items"] = [dict(i) for i in items]
+
+        return order_dict
+
+
+async def update_order_status(order_id: int, new_status: str) -> bool:
+    """Buyurtma holatini yangilaydi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute("UPDATE orders SET status = ? WHERE id = ?", (new_status, order_id))
+        await db.commit()
+        return cursor.rowcount > 0
+
+
+async def get_orders_for_export(days: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Excel / CSV eksporti uchun buyurtmalar ro'yxatini oladi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        where_clause = ""
+        params = []
+        if days:
+            where_clause = f"WHERE o.created_at >= datetime('now', '-{days} days')"
+
+        query = f"""
+            SELECT o.*, u.full_name as customer_name
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.user_id
+            {where_clause}
+            ORDER BY o.id DESC
+        """
+        async with db.execute(query, tuple(params)) as cursor:
+            orders = await cursor.fetchall()
+            result = []
+            for o in orders:
+                od = dict(o)
+                async with db.execute("SELECT product_name, quantity FROM order_items WHERE order_id = ?", (od["id"],)) as ic:
+                    items = await ic.fetchall()
+                    od["items_summary"] = ", ".join([f"{i['product_name']} x {i['quantity']}" for i in items])
+                result.append(od)
+            return result
+
+
+# ==========================================
+# ADMIN PANEL: MAHSULOTLAR CRUD
+# ==========================================
+
+async def add_product(category: str, name: str, price: int, description: str, image: str, badge: str = "") -> int:
+    """Yangi mahsulot qo'shadi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute("""
+            INSERT INTO products (category, name, price, description, image, badge, is_available)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+        """, (category, name, price, description, image, badge))
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def get_product_by_id(product_id: int) -> Optional[Dict[str, Any]]:
+    """Mahsulotni id bo'yicha oladi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM products WHERE id = ?", (product_id,)) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+
+async def toggle_product_status(product_id: int) -> int:
+    """Mahsulot faolligini almashtiradi (1 <-> 0). Yangi holatni qaytaradi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT is_available FROM products WHERE id = ?", (product_id,)) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return -1
+            new_status = 0 if row[0] == 1 else 1
+        await db.execute("UPDATE products SET is_available = ? WHERE id = ?", (new_status, product_id))
+        await db.commit()
+        return new_status
+
+
+async def update_product_discount(product_id: int, discount_price: int):
+    """Mahsulotga aksiya narxi qo'yadi yoki o'chiradi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        badge = "🔥 Aksiya" if discount_price > 0 else ""
+        await db.execute("UPDATE products SET price = ?, badge = ? WHERE id = ?", (discount_price, badge, product_id))
+        await db.commit()
+
+
+async def update_product_image(product_id: int, new_image: str):
+    """Mahsulot rasmini yangilaydi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("UPDATE products SET image = ? WHERE id = ?", (new_image, product_id))
+        await db.commit()
+
+
+async def delete_product(product_id: int):
+    """Mahsulotni o'chiradi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        await db.commit()
+
+
+# ==========================================
+# ADMIN PANEL: PROMOKODLAR BOSHQARUVI
+# ==========================================
+
+async def get_all_promos() -> List[Dict[str, Any]]:
+    """Barcha promokodlarni oladi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM promos ORDER BY id DESC") as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def add_promo(code: str, discount_percent: int, min_order_amount: int = 0, usage_limit: int = 100) -> int:
+    """Yangi promokod yaratadi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute("""
+            INSERT INTO promos (code, discount_percent, min_order_amount, usage_limit, used_count, is_active)
+            VALUES (?, ?, ?, ?, 0, 1)
+        """, (code.strip().upper(), discount_percent, min_order_amount, usage_limit))
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def delete_promo(promo_id: int):
+    """Promokodni o'chiradi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("DELETE FROM promos WHERE id = ?", (promo_id,))
+        await db.commit()
+
+
+async def toggle_promo_status(promo_id: int) -> int:
+    """Promokod faolligini almashtiradi (1 <-> 0)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT is_active FROM promos WHERE id = ?", (promo_id,)) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return -1
+            new_status = 0 if row[0] == 1 else 1
+        await db.execute("UPDATE promos SET is_active = ? WHERE id = ?", (new_status, promo_id))
+        await db.commit()
+        return new_status
+
+
+# ==========================================
+# ADMIN PANEL: FOYDALANUVCHILAR VA XABAR TARQATISH
+# ==========================================
+
+async def get_all_user_ids() -> List[int]:
+    """Barcha ro'yxatdan o'tgan foydalanuvchilar ID larini oladi."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT user_id FROM users") as cursor:
+            rows = await cursor.fetchall()
+            return [r[0] for r in rows]
+
+
+async def get_all_users_count() -> int:
+    """Jami foydalanuvchilar soni."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM users") as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+

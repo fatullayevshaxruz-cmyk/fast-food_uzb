@@ -27,7 +27,12 @@ RESTAURANT_LAT = float(os.getenv("RESTAURANT_LAT", "41.311081"))
 RESTAURANT_LON = float(os.getenv("RESTAURANT_LON", "69.240562"))
 
 # Web App / Server sozlamalari
-WEB_APP_URL = os.getenv("WEB_APP_URL", os.getenv("RENDER_URL", "https://fast-food-uzb.onrender.com"))
+raw_web_url = os.getenv("WEB_APP_URL") or os.getenv("RENDER_EXTERNAL_URL") or os.getenv("RENDER_URL") or ""
+if not raw_web_url or "fastfood-bot-webapp" in raw_web_url or "fast-food-1-p4bx" in raw_web_url:
+    WEB_APP_URL = "https://fast-food-uzb.onrender.com"
+else:
+    WEB_APP_URL = raw_web_url.rstrip("/")
+
 PORT = int(os.getenv("PORT", "8080"))
 
 # Database

@@ -14,15 +14,19 @@ _DB_DIR = os.path.dirname(os.path.abspath(__file__))
 SQLITE_PATH = os.path.join(_DB_DIR, "fastfood.db")
 
 async def create_db_pool():
-    try:
-        pool = await asyncpg.create_pool(POSTGRES_URI)
-        logging.info("PostgreSQL ga ulandi.")
-        return pool
-    except Exception as e:
-        logging.warning(f"PostgreSQL connection failed: {e}. Switching to SQLite.")
-        pool = SQLitePool(SQLITE_PATH)
-        await pool.init()
-        return pool
+    has_pg_env = bool((os.getenv("DATABASE_URL") or os.getenv("DB_URL") or "").strip())
+    if has_pg_env and asyncpg is not None:
+        try:
+            pool = await asyncpg.create_pool(POSTGRES_URI)
+            logging.info("PostgreSQL ga ulandi.")
+            return pool
+        except Exception as e:
+            logging.warning(f"PostgreSQL connection failed: {e}. Switching to SQLite.")
+
+    pool = SQLitePool(SQLITE_PATH)
+    await pool.init()
+    logging.info("✅ SQLite ma'lumotlar bazasiga ulandi (fastfood.db).")
+    return pool
 
 async def init_db_pool():
     global db_pool

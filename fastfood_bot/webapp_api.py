@@ -1,6 +1,9 @@
+import json
 import logging
 import asyncio
 from aiohttp import web
+
+_json_dumps = lambda obj: json.dumps(obj, default=str)
 from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
 from database.crud import (
     get_user, get_user_orders, get_favorites, toggle_favorite,
@@ -31,7 +34,7 @@ def _is_admin(user_id):
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-Init-Data, Authorization"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Telegram-Init-Data, Authorization, ngrok-skip-browser-warning"
     return response
 
 async def options_handler(request):
@@ -214,7 +217,7 @@ async def api_admin_dashboard(request):
         return add_cors_headers(web.json_response({
             "stats": dict(stats),
             "active_orders_count": active_orders
-        }, default=str))
+        }, dumps=_json_dumps))
     except Exception as e:
         logging.error(f"/api/admin/dashboard error: {e}")
         return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
@@ -252,7 +255,7 @@ async def api_admin_orders(request):
                 
             orders_list.append(o_dict)
             
-        return add_cors_headers(web.json_response({"orders": orders_list}, default=str))
+        return add_cors_headers(web.json_response({"orders": orders_list}, dumps=_json_dumps))
     except Exception as e:
         logging.error(f"/api/admin/orders error: {e}")
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
@@ -875,7 +878,7 @@ async def api_branches_list(request):
         from utils.geo_routing import _get_clean_bukhara_branches
         rows = await get_active_branches()
         branches = _get_clean_bukhara_branches(rows)
-        return add_cors_headers(web.json_response({"branches": branches}, default=str))
+        return add_cors_headers(web.json_response({"branches": branches}, dumps=_json_dumps))
     except Exception as e:
         logging.error(f"/api/branches error: {e}", exc_info=True)
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))

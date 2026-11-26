@@ -273,3 +273,17 @@ async def seed_data():
                     pass
         except Exception:
             pass
+
+        # ── Standart promokod (DARXAN10) ──
+        try:
+            existing_promo = await conn.fetchrow("SELECT id FROM promo_codes WHERE code = 'DARXAN10'")
+            if not existing_promo:
+                await conn.execute(
+                    """
+                    INSERT INTO promo_codes (code, discount_percent, max_uses, min_order_amount, is_active)
+                    VALUES ($1, $2, $3, $4, $5)
+                    """,
+                    "DARXAN10", 10, 0, 30000, True,
+                )
+        except Exception:
+            pass

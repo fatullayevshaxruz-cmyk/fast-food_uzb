@@ -420,7 +420,10 @@ async def sync_instagram(force: bool = False) -> Dict[str, Any]:
         # Hech bir manba ishlamadi — eski keshni saqlab qolamiz, keyingi urinishgacha kutamiz
         _state["synced_at"] = int(time.time())
         _state["error"] = "; ".join(errors)[:500]
-        log.warning(f"📸 Instagram sync muvaffaqiyatsiz: {_state['error']}")
+        if (GRAPH_TOKEN and GRAPH_USER_ID) or (IG_LOGIN and IG_PASSWORD):
+            log.warning(f"📸 Instagram sync muvaffaqiyatsiz: {_state['error']}")
+        else:
+            log.info("📸 Stories & Bannerlar: lokal zaxira bannerlar faol.")
         return _state
 
 

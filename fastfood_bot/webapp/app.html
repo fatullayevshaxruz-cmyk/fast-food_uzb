@@ -132,6 +132,7 @@
       const headers = {
         ...(options.headers || {}),
         'X-Telegram-Init-Data': tg?.initData || '',
+        'ngrok-skip-browser-warning': '1',
       };
       return fetch(url, { ...options, headers });
     }
@@ -1072,7 +1073,7 @@
       useEffect(() => {
         (async () => {
           try {
-            const res = await fetch(`${API_BASE}/api/payment-config`);
+            const res = await secureFetch(`${API_BASE}/api/payment-config`);
             if (!res.ok) return;
             const cfg = await res.json();
             const normalized = { cash: true, payme: !!cfg.payme, click: !!cfg.click };
@@ -1100,7 +1101,7 @@
         let cancelled = false;
         const loadPromo = async () => {
           try {
-            const res = await fetch(`${API_BASE}/api/promo-stories`);
+            const res = await secureFetch(`${API_BASE}/api/promo-stories`);
             if (!res.ok) return;
             const data = await res.json();
             if (cancelled) return;
@@ -1312,7 +1313,7 @@
       useEffect(() => {
         async function fetchInitialData() {
           try {
-            const res = await fetch(`${API_BASE}/api/menu`);
+            const res = await secureFetch(`${API_BASE}/api/menu`);
             if (res.ok) {
               const data = await res.json();
               if (data.categories && data.categories.length > 0) {
@@ -1478,7 +1479,7 @@
       const fetchNearestBranch = useCallback(async (la, lo) => {
         if (la === null || lo === null || la === undefined || lo === undefined) return;
         try {
-          const res = await fetch(
+          const res = await secureFetch(
             `${API_BASE}/api/branches/nearest?lat=${encodeURIComponent(la)}&lon=${encodeURIComponent(lo)}`
           );
           if (res.ok) {
@@ -1534,7 +1535,7 @@
         if (!code) return;
         hapticImpact('light');
         try {
-          const res = await fetch(
+          const res = await secureFetch(
             `${API_BASE}/api/promo?code=${encodeURIComponent(code)}&user_id=${initialUid || 0}`
           );
           if (res.ok) {

@@ -84,25 +84,29 @@ class SQLiteConnection:
     def __init__(self, conn):
         self.conn = conn
 
-    def _convert_query(self, query):
-        new_query = re.sub(r'\$\d+', '?', query)
-        return new_query
+    def _prepare(self, query, args):
+        matches = list(re.finditer(r'\$(\d+)', query))
+        if matches:
+            new_args = tuple(args[int(m.group(1)) - 1] for m in matches)
+            new_query = re.sub(r'\$\d+', '?', query)
+            return new_query, new_args
+        return query, args
 
     async def execute(self, query, *args):
-        q = self._convert_query(query)
+        q, bound_args = self._prepare(query, args)
         if "SERIAL PRIMARY KEY" in q:
             q = q.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
         if "::integer" in q:
             q = q.replace("::integer", "")
         try:
-            await self.conn.execute(q, args)
+            await self.conn.execute(q, bound_args)
             await self.conn.commit()
         except Exception as e:
             raise e
 
     async def fetch(self, query, *args):
-        q = self._convert_query(query)
-        cursor = await self.conn.execute(q, args)
+        q, bound_args = self._prepare(query, args)
+        cursor = await self.conn.execute(q, bound_args)
         try:
             rows = await cursor.fetchall()
             return [CompatRow(r) for r in rows]
@@ -110,21 +114,21 @@ class SQLiteConnection:
             await cursor.close()
 
     async def fetchrow(self, query, *args):
-        q = self._convert_query(query)
-        
+        q, bound_args = self._prepare(query, args)
+
         # Handle RETURNING id emulation for SQLite
         if 'returning id' in q.lower():
             q = re.sub(r'RETURNING\s+id', '', q, flags=re.IGNORECASE).strip()
-            cursor = await self.conn.execute(q, args)
+            cursor = await self.conn.execute(q, bound_args)
             try:
                 await self.conn.commit()
                 last_id = cursor.lastrowid
                 return {'id': last_id}
             finally:
                 await cursor.close()
-        
+
         # Normal fetchrow
-        cursor = await self.conn.execute(q, args)
+        cursor = await self.conn.execute(q, bound_args)
         try:
             row = await cursor.fetchone()
             return CompatRow(row) if row is not None else None

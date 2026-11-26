@@ -57,31 +57,203 @@ USER_AGENT = (
     "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 )
 
-# Admin hech narsa qo'shmagan bo'lsa ko'rsatiladigan standart bannerlar
+SHOWCASE_URL_PREFIX = "/webapp/media/showcase"
+
+# Admin hech narsa qo'shmagan bo'lsa ko'rsatiladigan standart menyu bannerlari
 DEFAULT_BANNERS: List[Dict[str, Any]] = [
     {
         "id": 1,
-        "title": "🍔 Darxan Combo",
-        "subtitle": "Burger + Fri + Ichimlik — maxsus narxda!",
-        "image": "",
-        "color": "linear-gradient(135deg,#E50914 0%,#FF6B3D 100%)",
-        "link": "",
+        "title": "🎁 Darxan Kombo Setlar",
+        "subtitle": "Burger + Fri + Coca-Cola • DARXAN10 (-10%)",
+        "image": f"{SHOWCASE_URL_PREFIX}/banner_combo.jpg",
+        "color": "linear-gradient(135deg,#991B1B 0%,#E50914 100%)",
+        "link": "category:5",
     },
     {
         "id": 2,
-        "title": "🛵 Tezkor yetkazib berish",
-        "subtitle": "Buxoro bo'ylab 30–40 daqiqada eshigingizgacha",
-        "image": "",
-        "color": "linear-gradient(135deg,#111827 0%,#374151 100%)",
-        "link": "",
+        "title": "🍔 Grill Burgerlar",
+        "subtitle": "Double Cheese, BBQ va Big Burgerlar 35 000 so'mdan",
+        "image": f"{SHOWCASE_URL_PREFIX}/banner_burgers.jpg",
+        "color": "linear-gradient(135deg,#7F1D1D 0%,#EA580C 100%)",
+        "link": "category:1",
     },
     {
         "id": 3,
-        "title": "🎟 Promokod: DARXAN10",
-        "subtitle": "Birinchi buyurtmaga −10% chegirma",
-        "image": "",
-        "color": "linear-gradient(135deg,#F59E0B 0%,#EF4444 100%)",
-        "link": "",
+        "title": "🌯 Tandir Lavash & Doner",
+        "subtitle": "Issig'ida mol va tovuq go'shtli lavashlar",
+        "image": f"{SHOWCASE_URL_PREFIX}/banner_lavash.jpg",
+        "color": "linear-gradient(135deg,#78350F 0%,#D97706 100%)",
+        "link": "category:2",
+    },
+    {
+        "id": 4,
+        "title": "🍟 Qarsildoq Gazaklar",
+        "subtitle": "Kartoshka Fri, Nuggets va maxsus souslar",
+        "image": f"{SHOWCASE_URL_PREFIX}/banner_snacks.jpg",
+        "color": "linear-gradient(135deg,#1E1B4B 0%,#4F46E5 100%)",
+        "link": "category:4",
+    },
+    {
+        "id": 5,
+        "title": "🥤 Muzdek Ichimliklar",
+        "subtitle": "Coca-Cola, Fanta, Sprite va issiq choylar",
+        "image": f"{SHOWCASE_URL_PREFIX}/banner_drinks.jpg",
+        "color": "linear-gradient(135deg,#164E63 0%,#0891B2 100%)",
+        "link": "category:3",
+    },
+]
+
+# Menyu bo'limlariga mos 5 xil dizayndagi Story posterlar + 5 ta Reels videolar
+DEFAULT_SHOWCASE_ITEMS: List[Dict[str, Any]] = [
+    {
+        "id": "story_burgers",
+        "kind": "story",
+        "type": "image",
+        "url": f"{SHOWCASE_URL_PREFIX}/story_burgers.jpg",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/story_burgers.jpg",
+        "caption": "🍔 Shirali Grill Burgerlar",
+        "subtitle": "Double Cheese, BBQ & Darxan Big — 35 000 so'mdan",
+        "badge": "🔥 Xit",
+        "theme_color": "#E50914",
+        "category_id": 1,
+        "cta_label": "🍔 Burgerlar bo'limini ochish",
+        "permalink": "",
+        "taken_at": 0,
+    },
+    {
+        "id": "reel_burgers",
+        "kind": "reel",
+        "type": "video",
+        "url": f"{SHOWCASE_URL_PREFIX}/reel_burgers.mp4",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/reel_burgers_thumb.jpg",
+        "caption": "🎬 Burgerlar Reels — Issiq Grill",
+        "subtitle": "Cheese Burger, Double Cheese & Big Burger",
+        "badge": "🍔 Burgerlar",
+        "theme_color": "#E50914",
+        "category_id": 1,
+        "cta_label": "🍔 Burgerlarni tanlash",
+        "permalink": "",
+        "taken_at": 0,
+    },
+    {
+        "id": "story_lavash",
+        "kind": "story",
+        "type": "image",
+        "url": f"{SHOWCASE_URL_PREFIX}/story_lavash.jpg",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/story_lavash.jpg",
+        "caption": "🌯 Tandir Lavash & Doner",
+        "subtitle": "Mol va tovuq go'shtli tandir lavash — 32 000 so'mdan",
+        "badge": "✨ Tandir",
+        "theme_color": "#D97706",
+        "category_id": 2,
+        "cta_label": "🌯 Lavash & Doner bo'limi",
+        "permalink": "",
+        "taken_at": 0,
+    },
+    {
+        "id": "reel_lavash",
+        "kind": "reel",
+        "type": "video",
+        "url": f"{SHOWCASE_URL_PREFIX}/reel_lavash.mp4",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/reel_lavash_thumb.jpg",
+        "caption": "🎬 Lavash & Doner Reels",
+        "subtitle": "Mol go'shtli Lavash, Tovuqli va Mix Doner",
+        "badge": "🌯 Lavash",
+        "theme_color": "#D97706",
+        "category_id": 2,
+        "cta_label": "🌯 Lavashlarni ko'rish",
+        "permalink": "",
+        "taken_at": 0,
+    },
+    {
+        "id": "story_combo",
+        "kind": "story",
+        "type": "image",
+        "url": f"{SHOWCASE_URL_PREFIX}/story_combo.jpg",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/story_combo.jpg",
+        "caption": "🎁 VIP Kombo To'plamlar",
+        "subtitle": "DARXAN10 promokodi bilan −10% chegirma!",
+        "badge": "🎁 -10%",
+        "theme_color": "#B91C1C",
+        "category_id": 5,
+        "cta_label": "🎁 Kombo to'plamlarni ochish",
+        "permalink": "",
+        "taken_at": 0,
+    },
+    {
+        "id": "reel_combo",
+        "kind": "reel",
+        "type": "video",
+        "url": f"{SHOWCASE_URL_PREFIX}/reel_combo.mp4",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/reel_combo_thumb.jpg",
+        "caption": "🎬 Kombo To'plamlar Reels",
+        "subtitle": "Darxan Kombo, Double Kombo va Oilaviy Kombo",
+        "badge": "🎁 Kombo",
+        "theme_color": "#B91C1C",
+        "category_id": 5,
+        "cta_label": "🎁 Komboga o'tish",
+        "permalink": "",
+        "taken_at": 0,
+    },
+    {
+        "id": "story_snacks",
+        "kind": "story",
+        "type": "image",
+        "url": f"{SHOWCASE_URL_PREFIX}/story_snacks.jpg",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/story_snacks.jpg",
+        "caption": "🍟 Qarsildoq Gazaklar",
+        "subtitle": "Kartoshka Fri, Tovuq Nuggets va maxsus souslar",
+        "badge": "⚡ Top",
+        "theme_color": "#4F46E5",
+        "category_id": 4,
+        "cta_label": "🍟 Gazaklar bo'limini ochish",
+        "permalink": "",
+        "taken_at": 0,
+    },
+    {
+        "id": "reel_snacks",
+        "kind": "reel",
+        "type": "video",
+        "url": f"{SHOWCASE_URL_PREFIX}/reel_snacks.mp4",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/reel_snacks_thumb.jpg",
+        "caption": "🎬 Gazaklar & Fri Reels",
+        "subtitle": "Kartoshka Fri, Nuggets 6 dona va Souslar",
+        "badge": "🍟 Gazak",
+        "theme_color": "#4F46E5",
+        "category_id": 4,
+        "cta_label": "🍟 Gazaklarni tanlash",
+        "permalink": "",
+        "taken_at": 0,
+    },
+    {
+        "id": "story_drinks",
+        "kind": "story",
+        "type": "image",
+        "url": f"{SHOWCASE_URL_PREFIX}/story_drinks.jpg",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/story_drinks.jpg",
+        "caption": "🥤 Muzdek Ichimliklar",
+        "subtitle": "Coca-Cola, Fanta, Sprite, suv va issiq choy",
+        "badge": "❄️ Muzdek",
+        "theme_color": "#0891B2",
+        "category_id": 3,
+        "cta_label": "🥤 Ichimliklarni ochish",
+        "permalink": "",
+        "taken_at": 0,
+    },
+    {
+        "id": "reel_drinks",
+        "kind": "reel",
+        "type": "video",
+        "url": f"{SHOWCASE_URL_PREFIX}/reel_drinks.mp4",
+        "thumbnail": f"{SHOWCASE_URL_PREFIX}/reel_drinks_thumb.jpg",
+        "caption": "🎬 Ichimliklar Reels — Ice Cold",
+        "subtitle": "Muzdek gazli ichimliklar 3 000 so'mdan",
+        "badge": "🥤 Ichimlik",
+        "theme_color": "#0891B2",
+        "category_id": 3,
+        "cta_label": "🥤 Ichimlik buyurtma berish",
+        "permalink": "",
+        "taken_at": 0,
     },
 ]
 
@@ -465,10 +637,22 @@ def get_promo_payload() -> Dict[str, Any]:
     stories = [s for s in _state.get("stories") or []
                if not s.get("taken_at") or now - s["taken_at"] < STORY_TTL]
     reels = list(_state.get("reels") or [])
-    items = stories + reels
+    live_items = stories + reels
 
-    fallback = not items
-    if fallback:
+    showcase_dir = BASE_DIR / "webapp" / "media" / "showcase"
+    curated = [
+        item for item in DEFAULT_SHOWCASE_ITEMS
+        if (showcase_dir / item["url"].rsplit("/", 1)[-1]).exists()
+    ]
+
+    if live_items:
+        seen_ids = {i.get("id") for i in live_items}
+        items = live_items + [c for c in curated if c["id"] not in seen_ids]
+        fallback = False
+    elif curated:
+        items = curated
+        fallback = True
+    else:
         items = [{
             "id": f"promo_{b.get('id')}",
             "kind": "promo",
@@ -481,6 +665,7 @@ def get_promo_payload() -> Dict[str, Any]:
             "color": b.get("color") or "",
             "taken_at": 0,
         } for b in banners]
+        fallback = True
 
     return {
         "banners": banners,

@@ -534,44 +534,94 @@
 
     // ─── 2.6 INSTAGRAM STORIES & REELS CARDS ───────────────────────────
     function StoryCards({ stories, viewedIds, onOpen }) {
+      const [filterKind, setFilterKind] = useState('all'); // 'all' | 'story' | 'reel'
+      const hasStories = stories.some((s) => s.kind !== 'reel' && s.type !== 'video');
+      const hasReels = stories.some((s) => s.kind === 'reel' || s.type === 'video');
+
+      const filtered = useMemo(() => {
+        if (filterKind === 'story') return stories.filter((s) => s.kind !== 'reel' && s.type !== 'video');
+        if (filterKind === 'reel') return stories.filter((s) => s.kind === 'reel' || s.type === 'video');
+        return stories;
+      }, [stories, filterKind]);
+
       if (!stories.length) return null;
       return (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between px-0.5">
-            <h3 className="text-[15px] font-extrabold text-neutral-900">📸 Stories & Reels</h3>
-            <span className="text-[11px] font-semibold text-neutral-400">@darxan_burger</span>
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="text-[15px] font-extrabold text-neutral-900 truncate">📸 Stories & Reels</h3>
+              <span className="text-[11px] font-semibold text-neutral-400 shrink-0">@darxan_burger</span>
+            </div>
+            {hasStories && hasReels && (
+              <div className="flex items-center gap-1 bg-neutral-200/70 p-0.5 rounded-full shrink-0">
+                {[
+                  { id: 'all', label: 'Barchasi' },
+                  { id: 'story', label: 'Stories' },
+                  { id: 'reel', label: 'Reels' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => { hapticImpact('light'); setFilterKind(tab.id); }}
+                    className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold transition-all ${
+                      filterKind === tab.id
+                        ? 'bg-white text-neutral-900 shadow-sm'
+                        : 'text-neutral-500'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 snap-x">
-            {stories.map((s, i) => {
+            {filtered.map((s, i) => {
               const thumb = resolveMediaUrl(s.thumbnail || (s.type === 'image' ? s.url : ''));
               const viewed = viewedIds.has(s.id);
+              const isReel = s.kind === 'reel' || s.type === 'video';
+              const ringClass = viewed
+                ? 'bg-neutral-300/80'
+                : isReel
+                  ? 'bg-gradient-to-tr from-[#6366F1] via-[#EC4899] to-[#F59E0B]'
+                  : 'bg-gradient-to-tr from-[#F59E0B] via-[#E50914] to-[#EC4899]';
+
               return (
-                <button
+                <div
                   key={s.id}
-                  type="button"
-                  onClick={() => { hapticImpact('light'); onOpen(i); }}
-                  className={`relative shrink-0 w-[104px] aspect-[3/4] rounded-[18px] overflow-hidden snap-start bg-neutral-200 shadow-[0_6px_18px_rgba(0,0,0,0.10)] active:scale-95 transition-transform ${
-                    viewed ? 'opacity-75' : ''
+                  className={`shrink-0 p-[2.5px] rounded-[20px] snap-start shadow-[0_6px_18px_rgba(0,0,0,0.09)] transition-opacity ${ringClass} ${
+                    viewed ? 'opacity-80' : ''
                   }`}
-                  style={!thumb ? { background: s.color || 'linear-gradient(160deg,#E50914 0%,#7F1D1D 100%)' } : undefined}
                 >
-                  {thumb ? (
-                    <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" draggable={false} />
-                  ) : s.type === 'video' ? (
-                    <video src={resolveMediaUrl(s.url)} muted playsInline preload="metadata" className="absolute inset-0 w-full h-full object-cover" />
-                  ) : null}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10" />
-                  {/* Ichki yarim-shaffof oq ramka */}
-                  <div className="absolute inset-1 rounded-[14px] border border-white/55 pointer-events-none" />
-                  {(s.kind === 'reel' || s.type === 'video') && (
-                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-black/40 backdrop-blur flex items-center justify-center">
-                      <svg className="w-2.5 h-2.5 text-white ml-px" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  <button
+                    type="button"
+                    onClick={() => { hapticImpact('light'); onOpen(filtered, i); }}
+                    className="relative block w-[104px] aspect-[3/4] rounded-[18px] overflow-hidden bg-neutral-900 active:scale-95 transition-transform"
+                    style={!thumb ? { background: s.color || 'linear-gradient(160deg,#E50914 0%,#7F1D1D 100%)' } : undefined}
+                  >
+                    {thumb ? (
+                      <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" draggable={false} />
+                    ) : s.type === 'video' ? (
+                      <video src={resolveMediaUrl(s.url)} muted playsInline preload="metadata" className="absolute inset-0 w-full h-full object-cover" />
+                    ) : null}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/25" />
+                    {/* Ichki yarim-shaffof oq ramka (4px ichkarida) */}
+                    <div className="absolute inset-1 rounded-[14px] border border-white/55 pointer-events-none" />
+                    {s.badge && (
+                      <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full bg-black/50 backdrop-blur-sm text-[9px] font-extrabold text-white border border-white/20">
+                        {s.badge}
+                      </span>
+                    )}
+                    {isReel && (
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-black/50 backdrop-blur-sm border border-white/25 flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white ml-px" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                      </div>
+                    )}
+                    <div className="absolute left-2.5 right-2.5 bottom-2.5 text-[10.5px] font-bold text-white leading-tight line-clamp-2 text-left drop-shadow">
+                      {s.caption || (isReel ? 'Reels' : s.kind === 'story' ? 'Story' : 'Aksiya')}
                     </div>
-                  )}
-                  <div className="absolute left-2 right-2 bottom-2 text-[10.5px] font-bold text-white leading-tight line-clamp-2 text-left drop-shadow">
-                    {s.caption || (s.kind === 'story' ? 'Story' : s.kind === 'reel' ? 'Reels' : 'Aksiya')}
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -582,7 +632,7 @@
     // ─── 2.7 FULL-SCREEN STORY VIEWER (Instagram uslubi) ───────────────
     const STORY_IMAGE_MS = 5000;
 
-    function StoryViewer({ stories, startIndex, onClose, onViewed }) {
+    function StoryViewer({ stories, startIndex, onClose, onViewed, onSelectCategory }) {
       const [idx, setIdx] = useState(startIndex);
       const [progress, setProgress] = useState(0);
       const [paused, setPaused] = useState(false);
@@ -799,29 +849,52 @@
             </div>
           </div>
 
-          {/* Pastki qism: caption + Instagram havolasi */}
-          {(item.permalink || (item.caption && mediaUrl)) && (
+          {/* Pastki qism: caption + menyu bo'limi CTA + Instagram havolasi */}
+          {(item.category_id || item.permalink || (item.caption && mediaUrl)) && (
             <div
-              className={`absolute bottom-0 left-0 right-0 px-4 pt-10 bg-gradient-to-t from-black/70 to-transparent transition-opacity ${paused ? 'opacity-0' : 'opacity-100'}`}
+              className={`absolute bottom-0 left-0 right-0 px-4 pt-12 bg-gradient-to-t from-black/85 via-black/45 to-transparent transition-opacity ${paused ? 'opacity-0' : 'opacity-100'}`}
               style={{ paddingBottom: 'max(18px, env(safe-area-inset-bottom))' }}
             >
               {item.caption && mediaUrl && (
-                <p className="text-white text-[13px] leading-snug line-clamp-3 mb-3">{item.caption}</p>
+                <div className="mb-3">
+                  <p className="text-white text-sm font-bold leading-snug drop-shadow">{item.caption}</p>
+                  {item.subtitle && (
+                    <p className="text-white/80 text-xs mt-0.5 line-clamp-2">{item.subtitle}</p>
+                  )}
+                </div>
               )}
-              {item.permalink && /^https?:\/\//.test(item.permalink) && (
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onPointerUp={(e) => e.stopPropagation()}
-                  onClick={() => {
-                    setPaused(true);
-                    try { tg?.openLink ? tg.openLink(item.permalink) : window.open(item.permalink, '_blank'); } catch (e) {}
-                  }}
-                  className="relative z-10 w-full py-3 rounded-2xl bg-white/15 backdrop-blur border border-white/25 text-white text-sm font-bold active:scale-[0.98] transition-transform"
-                >
-                  {item.kind === 'promo' ? 'Batafsil' : "📸 Instagram'da ochish"}
-                </button>
-              )}
+              <div className="space-y-2">
+                {item.category_id && onSelectCategory && (
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onPointerUp={(e) => e.stopPropagation()}
+                    onClick={() => {
+                      hapticImpact('medium');
+                      onSelectCategory(item.category_id);
+                    }}
+                    className="relative z-10 w-full py-3.5 rounded-2xl text-white text-sm font-extrabold shadow-lg active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                    style={{ background: item.theme_color || '#E50914' }}
+                  >
+                    <span>{item.cta_label || "🍽 Menyuda ko'rish"}</span>
+                    <span>→</span>
+                  </button>
+                )}
+                {item.permalink && /^https?:\/\//.test(item.permalink) && (
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onPointerUp={(e) => e.stopPropagation()}
+                    onClick={() => {
+                      setPaused(true);
+                      try { tg?.openLink ? tg.openLink(item.permalink) : window.open(item.permalink, '_blank'); } catch (e) {}
+                    }}
+                    className="relative z-10 w-full py-3 rounded-2xl bg-white/15 backdrop-blur border border-white/25 text-white text-sm font-bold active:scale-[0.98] transition-transform"
+                  >
+                    {item.kind === 'promo' ? 'Batafsil' : "📸 Instagram'da ochish"}
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1091,7 +1164,7 @@
       // 📸 Promo bannerlar + Instagram Stories/Reels
       const [promoBanners, setPromoBanners] = useState([]);
       const [promoStories, setPromoStories] = useState([]);
-      const [storyViewerIndex, setStoryViewerIndex] = useState(null);
+      const [storyViewerData, setStoryViewerData] = useState(null);
       const [viewedStoryIds, setViewedStoryIds] = useState(() => {
         try { return new Set(JSON.parse(localStorage.getItem('darxan_viewed_stories') || '[]')); }
         catch (e) { return new Set(); }
@@ -1124,7 +1197,14 @@
         });
       }, []);
 
-      const closeStoryViewer = useCallback(() => setStoryViewerIndex(null), []);
+      const closeStoryViewer = useCallback(() => setStoryViewerData(null), []);
+      const jumpToCategory = useCallback((catId) => {
+        setSearchQuery('');
+        setSelectedCatId(Number(catId));
+        setTimeout(() => {
+          document.getElementById('menu-catalog-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 60);
+      }, []);
 
       // Catalog, Cart, User & Orders State
       const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
@@ -2187,7 +2267,7 @@
                     const link = String(b.link || '');
                     if (link.startsWith('category:')) {
                       const cid = parseInt(link.split(':')[1], 10);
-                      if (cid) { setSearchQuery(''); setSelectedCatId(cid); }
+                      if (cid) jumpToCategory(cid);
                     } else if (/^https?:\/\//.test(link)) {
                       try { tg?.openLink ? tg.openLink(link) : window.open(link, '_blank'); } catch (e) {}
                     }
@@ -2198,7 +2278,7 @@
                 <StoryCards
                   stories={promoStories}
                   viewedIds={viewedStoryIds}
-                  onOpen={(i) => setStoryViewerIndex(i)}
+                  onOpen={(list, i) => setStoryViewerData({ list, index: i })}
                 />
 
                 {/* Nearest Branch Banner in Catalog (if detected) */}
@@ -2244,7 +2324,7 @@
                 </div>
 
                 {/* Category Pills */}
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                <div id="menu-catalog-anchor" className="flex gap-2 overflow-x-auto no-scrollbar pb-1 scroll-mt-16">
                   {categories.map((cat) => {
                     const active = selectedCatId === cat.id && !searchQuery;
                     return (
@@ -3138,12 +3218,13 @@
           )}
 
           {/* ─── 📸 Full-screen Story Viewer ─── */}
-          {storyViewerIndex !== null && promoStories.length > 0 && (
+          {storyViewerData && storyViewerData.list?.length > 0 && (
             <StoryViewer
-              stories={promoStories}
-              startIndex={Math.min(storyViewerIndex, promoStories.length - 1)}
+              stories={storyViewerData.list}
+              startIndex={Math.min(storyViewerData.index || 0, storyViewerData.list.length - 1)}
               onClose={closeStoryViewer}
               onViewed={markStoryViewed}
+              onSelectCategory={(cid) => { closeStoryViewer(); jumpToCategory(cid); }}
             />
           )}
 

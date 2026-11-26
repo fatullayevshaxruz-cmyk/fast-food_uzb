@@ -933,7 +933,103 @@ async def api_order_payment_status(request):
         return add_cors_headers(web.json_response({"error": str(e)}, status=500))
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 📸 PROMO BANNERLAR + INSTAGRAM STORIES / REELS
+# ══════════════════════════════════════════════════════════════════════
+async def api_promo_stories(request):
+    """
+    GET /api/promo-stories
+    Bosh sahifa uchun aksiya bannerlari va @darxan_burger Stories/Reels ro'yxati.
+    """
+    from utils.instagram_sync import get_promo_payload
+    try:
+        resp = web.json_response(get_promo_payload())
+        resp.headers["Cache-Control"] = "public, max-age=60"
+        return add_cors_headers(resp)
+    except Exception as e:
+        logging.error(f"/api/promo-stories error: {e}", exc_info=True)
+        return add_cors_headers(web.json_response({"banners": [], "stories": []}, status=500))
+
+
+async def api_admin_promo_banners(request):
+    """
+    GET  /api/admin/promo-banners?user_id=...            — ro'yxat
+    POST /api/admin/promo-banners {user_id, action, ...}
+         action="add"     + banner={title, subtitle, image, color, link}
+         action="delete"  + id=<banner id>
+         action="replace" + banners=[...]
+    Instagram'da story bo'lmaganda shu bannerlar zaxira story sifatida chiqadi.
+    """
+    from utils.instagram_sync import load_banners, save_banners
+    try:
+        data = {}
+        if request.method == "POST":
+            data = await request.json()
+        user_id = int(data.get("user_id") or request.query.get("user_id", 0) or 0)
+        if not is_verified_admin(request, user_id):
+            return add_cors_headers(web.json_response({"error": "Unauthorized"}, status=403))
+
+        banners = load_banners()
+        if request.method == "POST":
+            action = data.get("action")
+
+            def _clean(b):
+                return {
+                    "title": sanitize_text(str(b.get("title") or ""))[:80],
+                    "subtitle": sanitize_text(str(b.get("subtitle") or ""))[:140],
+                    "image": str(b.get("image") or "")[:500],
+                    "color": str(b.get("color") or "")[:200],
+                    "link": str(b.get("link") or "")[:500],
+                }
+
+            if action == "add":
+                new = _clean(data.get("banner") or {})
+                new["id"] = max([int(b.get("id", 0)) for b in banners] + [0]) + 1
+                banners.append(new)
+            elif action == "delete":
+                bid = int(data.get("id") or 0)
+                banners = [b for b in banners if int(b.get("id", 0)) != bid]
+            elif action == "replace":
+                banners = [{**_clean(b), "id": i + 1} for i, b in enumerate(data.get("banners") or [])]
+            else:
+                return add_cors_headers(web.json_response({"error": "Unknown action"}, status=400))
+            save_banners(banners)
+
+        return add_cors_headers(web.json_response({"banners": banners}))
+    except Exception as e:
+        logging.error(f"/api/admin/promo-banners error: {e}", exc_info=True)
+        return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
+
+
+async def api_admin_promo_refresh(request):
+    """POST /api/admin/promo-stories/refresh — Instagram'dan darhol qayta yuklash (faqat admin)."""
+    from utils.instagram_sync import sync_instagram, get_promo_payload
+    try:
+        data = await request.json() if request.can_read_body else {}
+        if not is_verified_admin(request, int(data.get("user_id") or 0)):
+            return add_cors_headers(web.json_response({"error": "Unauthorized"}, status=403))
+        state = await sync_instagram(force=True)
+        payload = get_promo_payload()
+        payload["error"] = state.get("error")
+        return add_cors_headers(web.json_response(payload))
+    except Exception as e:
+        logging.error(f"/api/admin/promo-stories/refresh error: {e}", exc_info=True)
+        return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
+
+
 def register_webapp_api(app: web.Application):
+    # 📸 Promo bannerlar + Instagram Stories/Reels
+    from utils.instagram_sync import start_background_sync, stop_background_sync
+    app.router.add_options('/api/promo-stories', options_handler)
+    app.router.add_get('/api/promo-stories', api_promo_stories)
+    app.router.add_options('/api/admin/promo-banners', options_handler)
+    app.router.add_get('/api/admin/promo-banners', api_admin_promo_banners)
+    app.router.add_post('/api/admin/promo-banners', api_admin_promo_banners)
+    app.router.add_options('/api/admin/promo-stories/refresh', options_handler)
+    app.router.add_post('/api/admin/promo-stories/refresh', api_admin_promo_refresh)
+    app.on_startup.append(start_background_sync)
+    app.on_cleanup.append(stop_background_sync)
+
     app.router.add_options('/api/user', options_handler)
     app.router.add_get('/api/user', api_user_profile)
 

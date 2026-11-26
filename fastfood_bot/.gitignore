@@ -35,3 +35,9 @@ ENV/
 # IDEs
 .vscode/
 .idea/
+
+# Instagram story/reels keshi
+webapp/media/stories/*
+!webapp/media/stories/.gitkeep
+data/promo_stories_cache.json
+data/ig_session.json

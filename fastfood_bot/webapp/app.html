@@ -421,6 +421,412 @@
       );
     }
 
+    // ─── 2.5 PROMO CAROUSEL (Auto-play, peek, pill indicators) ─────────
+    const resolveMediaUrl = (u) => (!u ? '' : /^https?:\/\//.test(u) ? u : `${API_BASE}${u}`);
+
+    function PromoCarousel({ banners, onBannerClick }) {
+      const trackRef = useRef(null);
+      const timerRef = useRef(null);
+      const activeRef = useRef(0);
+      const [active, setActive] = useState(0);
+      const count = banners.length;
+
+      const goTo = useCallback((idx) => {
+        const el = trackRef.current;
+        const slide = el?.children?.[idx];
+        if (!el || !slide) return;
+        el.scrollTo({ left: slide.offsetLeft - el.children[0].offsetLeft, behavior: 'smooth' });
+      }, []);
+
+      const stopTimer = useCallback(() => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = null;
+      }, []);
+
+      const startTimer = useCallback(() => {
+        stopTimer();
+        if (count < 2) return;
+        timerRef.current = setInterval(() => {
+          goTo((activeRef.current + 1) % count);
+        }, 3500);
+      }, [count, goTo, stopTimer]);
+
+      useEffect(() => {
+        startTimer();
+        return stopTimer;
+      }, [startTimer, stopTimer]);
+
+      const handleScroll = () => {
+        const el = trackRef.current;
+        if (!el || !el.children.length) return;
+        const first = el.children[0];
+        const step = el.children.length > 1
+          ? el.children[1].offsetLeft - first.offsetLeft
+          : first.offsetWidth;
+        const idx = Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / (step || 1))));
+        if (idx !== activeRef.current) {
+          activeRef.current = idx;
+          setActive(idx);
+        }
+      };
+
+      if (!count) return null;
+
+      return (
+        <div className="space-y-2.5">
+          <div
+            ref={trackRef}
+            onScroll={handleScroll}
+            onTouchStart={stopTimer}
+            onTouchEnd={startTimer}
+            onTouchCancel={startTimer}
+            onMouseEnter={stopTimer}
+            onMouseLeave={startTimer}
+            className="relative flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            {banners.map((b, i) => (
+              <button
+                key={b.id ?? i}
+                type="button"
+                onClick={() => onBannerClick && onBannerClick(b)}
+                className="relative shrink-0 w-[86%] aspect-[2.15/1] rounded-[20px] overflow-hidden snap-start text-left shadow-[0_8px_24px_rgba(0,0,0,0.10)] active:scale-[0.985] transition-transform"
+                style={{ background: b.color || 'linear-gradient(135deg,#E50914 0%,#FF6B3D 100%)' }}
+              >
+                {b.image && (
+                  <img
+                    src={resolveMediaUrl(b.image)}
+                    alt={b.title || ''}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                    draggable={false}
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+                <div className="absolute left-4 right-4 bottom-3.5 text-white">
+                  {b.title && <div className="text-[17px] font-extrabold leading-tight drop-shadow">{b.title}</div>}
+                  {b.subtitle && <div className="text-xs font-medium opacity-90 mt-0.5 line-clamp-2">{b.subtitle}</div>}
+                </div>
+              </button>
+            ))}
+            <div className="shrink-0 w-1" aria-hidden="true" />
+          </div>
+
+          {count > 1 && (
+            <div className="flex items-center justify-center gap-1.5">
+              {banners.map((b, i) => (
+                <button
+                  key={`dot-${b.id ?? i}`}
+                  type="button"
+                  aria-label={`Banner ${i + 1}`}
+                  onClick={() => { goTo(i); startTimer(); }}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === active ? 'w-5 bg-[#E50914]' : 'w-1.5 bg-neutral-300'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ─── 2.6 INSTAGRAM STORIES & REELS CARDS ───────────────────────────
+    function StoryCards({ stories, viewedIds, onOpen }) {
+      if (!stories.length) return null;
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-0.5">
+            <h3 className="text-[15px] font-extrabold text-neutral-900">📸 Stories & Reels</h3>
+            <span className="text-[11px] font-semibold text-neutral-400">@darxan_burger</span>
+          </div>
+          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 snap-x">
+            {stories.map((s, i) => {
+              const thumb = resolveMediaUrl(s.thumbnail || (s.type === 'image' ? s.url : ''));
+              const viewed = viewedIds.has(s.id);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => { hapticImpact('light'); onOpen(i); }}
+                  className={`relative shrink-0 w-[104px] aspect-[3/4] rounded-[18px] overflow-hidden snap-start bg-neutral-200 shadow-[0_6px_18px_rgba(0,0,0,0.10)] active:scale-95 transition-transform ${
+                    viewed ? 'opacity-75' : ''
+                  }`}
+                  style={!thumb ? { background: s.color || 'linear-gradient(160deg,#E50914 0%,#7F1D1D 100%)' } : undefined}
+                >
+                  {thumb ? (
+                    <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" draggable={false} />
+                  ) : s.type === 'video' ? (
+                    <video src={resolveMediaUrl(s.url)} muted playsInline preload="metadata" className="absolute inset-0 w-full h-full object-cover" />
+                  ) : null}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10" />
+                  {/* Ichki yarim-shaffof oq ramka */}
+                  <div className="absolute inset-1 rounded-[14px] border border-white/55 pointer-events-none" />
+                  {(s.kind === 'reel' || s.type === 'video') && (
+                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-black/40 backdrop-blur flex items-center justify-center">
+                      <svg className="w-2.5 h-2.5 text-white ml-px" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                    </div>
+                  )}
+                  <div className="absolute left-2 right-2 bottom-2 text-[10.5px] font-bold text-white leading-tight line-clamp-2 text-left drop-shadow">
+                    {s.caption || (s.kind === 'story' ? 'Story' : s.kind === 'reel' ? 'Reels' : 'Aksiya')}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 2.7 FULL-SCREEN STORY VIEWER (Instagram uslubi) ───────────────
+    const STORY_IMAGE_MS = 5000;
+
+    function StoryViewer({ stories, startIndex, onClose, onViewed }) {
+      const [idx, setIdx] = useState(startIndex);
+      const [progress, setProgress] = useState(0);
+      const [paused, setPaused] = useState(false);
+      const [muted, setMuted] = useState(true);
+      const [restartKey, setRestartKey] = useState(0);
+      const videoRef = useRef(null);
+      const pausedRef = useRef(false);
+      const holdTimerRef = useRef(null);
+      const heldRef = useRef(false);
+      const item = stories[idx];
+
+      const next = useCallback(() => {
+        if (idx + 1 >= stories.length) onClose();
+        else setIdx(idx + 1);
+      }, [idx, stories.length, onClose]);
+
+      const prev = useCallback(() => {
+        if (idx > 0) setIdx(idx - 1);
+        else setRestartKey((k) => k + 1);
+      }, [idx]);
+
+      const nextRef = useRef(next);
+      useEffect(() => { nextRef.current = next; }, [next]);
+
+      useEffect(() => { pausedRef.current = paused; }, [paused]);
+
+      useEffect(() => {
+        if (item) onViewed && onViewed(item.id);
+      }, [item?.id]);
+
+      // Body scroll lock + Telegram BackButton
+      useEffect(() => {
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const back = tg?.BackButton;
+        try { back?.show(); back?.onClick(onClose); } catch (e) {}
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => {
+          document.body.style.overflow = prevOverflow;
+          try { back?.offClick(onClose); back?.hide(); } catch (e) {}
+          window.removeEventListener('keydown', onKey);
+        };
+      }, [onClose]);
+
+      // Rasm uchun 5 soniyalik taymer (pauza qo'llab-quvvatlanadi)
+      useEffect(() => {
+        setProgress(0);
+        if (!item || item.type === 'video') return;
+        let raf;
+        let last = performance.now();
+        let elapsed = 0;
+        const tick = (now) => {
+          if (!pausedRef.current) elapsed += now - last;
+          last = now;
+          const p = Math.min(elapsed / STORY_IMAGE_MS, 1);
+          setProgress(p);
+          if (p >= 1) nextRef.current();
+          else raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+      }, [idx, restartKey, item?.type]);
+
+      // Video pauza / davom ettirish
+      useEffect(() => {
+        const v = videoRef.current;
+        if (!v) return;
+        if (paused) v.pause();
+        else v.play().catch(() => {});
+      }, [paused, idx]);
+
+      useEffect(() => {
+        const v = videoRef.current;
+        if (v && restartKey) { v.currentTime = 0; v.play().catch(() => {}); }
+      }, [restartKey]);
+
+      const clearHold = () => {
+        if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      };
+
+      const onPointerDown = () => {
+        heldRef.current = false;
+        clearHold();
+        holdTimerRef.current = setTimeout(() => {
+          heldRef.current = true;
+          setPaused(true);
+        }, 220);
+      };
+
+      const onPointerUp = (e) => {
+        clearHold();
+        if (heldRef.current) {
+          heldRef.current = false;
+          setPaused(false);
+          return;
+        }
+        hapticImpact('light');
+        const x = e.clientX ?? (e.changedTouches?.[0]?.clientX || 0);
+        if (x < window.innerWidth * 0.33) prev();
+        else next();
+      };
+
+      const onPointerCancel = () => {
+        clearHold();
+        heldRef.current = false;
+        setPaused(false);
+      };
+
+      if (!item) return null;
+      const mediaUrl = resolveMediaUrl(item.url);
+      const timeAgo = (() => {
+        if (!item.taken_at) return '';
+        const mins = Math.max(1, Math.round((Date.now() / 1000 - item.taken_at) / 60));
+        if (mins < 60) return `${mins} daq`;
+        const h = Math.round(mins / 60);
+        return h < 24 ? `${h} soat` : `${Math.round(h / 24)} kun`;
+      })();
+
+      return (
+        <div className="fixed inset-0 z-[200] bg-black select-none animate-ios-in" style={{ touchAction: 'none' }}>
+          {/* Media */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            {item.type === 'video' && mediaUrl ? (
+              <video
+                key={item.id}
+                ref={videoRef}
+                src={mediaUrl}
+                poster={resolveMediaUrl(item.thumbnail) || undefined}
+                autoPlay
+                playsInline
+                muted={muted}
+                className="w-full h-full object-contain"
+                onTimeUpdate={(e) => {
+                  const v = e.currentTarget;
+                  if (v.duration) setProgress(Math.min(v.currentTime / v.duration, 1));
+                }}
+                onEnded={() => nextRef.current()}
+                onError={() => setTimeout(() => nextRef.current(), 600)}
+              />
+            ) : mediaUrl ? (
+              <img key={item.id} src={mediaUrl} alt="" className="w-full h-full object-contain" draggable={false} />
+            ) : (
+              <div
+                key={item.id}
+                className="w-full h-full flex flex-col items-center justify-center px-8 text-center text-white"
+                style={{ background: item.color || 'linear-gradient(160deg,#E50914 0%,#7F1D1D 100%)' }}
+              >
+                <div className="text-3xl font-extrabold leading-tight">{item.caption}</div>
+                {item.subtitle && <div className="mt-3 text-base font-medium opacity-90">{item.subtitle}</div>}
+              </div>
+            )}
+          </div>
+
+          {/* Tap zonalari: chap = oldingi, o'ng = keyingi, bosib turish = pauza */}
+          <div
+            className="absolute inset-0"
+            onPointerDown={onPointerDown}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            onPointerLeave={(e) => { if (holdTimerRef.current || heldRef.current) onPointerCancel(e); }}
+            onContextMenu={(e) => e.preventDefault()}
+          />
+
+          {/* Progress bars + header */}
+          <div
+            className={`absolute top-0 left-0 right-0 px-2.5 pt-2.5 pb-6 bg-gradient-to-b from-black/60 to-transparent transition-opacity ${paused ? 'opacity-0' : 'opacity-100'}`}
+            style={{ paddingTop: 'max(10px, env(safe-area-inset-top))' }}
+          >
+            <div className="flex gap-1">
+              {stories.map((s, i) => (
+                <div key={s.id} className="flex-1 h-[2.5px] rounded-full bg-white/35 overflow-hidden">
+                  <div
+                    className="h-full bg-white rounded-full"
+                    style={{ width: `${i < idx ? 100 : i === idx ? progress * 100 : 0}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-2.5">
+              <img src={`${API_BASE}/webapp/logo.jpg`} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/70" />
+              <div className="flex-1 min-w-0 text-white">
+                <div className="text-[13px] font-bold leading-tight">darxan_burger</div>
+                <div className="text-[11px] opacity-75 leading-tight">
+                  {item.kind === 'reel' ? 'Reels' : item.kind === 'story' ? 'Story' : 'Aksiya'}
+                  {timeAgo ? ` · ${timeAgo}` : ''}
+                </div>
+              </div>
+              {item.type === 'video' && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerUp={(e) => e.stopPropagation()}
+                  onClick={() => setMuted((m) => !m)}
+                  className="relative z-10 w-9 h-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white text-base"
+                  aria-label="Ovoz"
+                >
+                  {muted ? '🔇' : '🔊'}
+                </button>
+              )}
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onPointerUp={(e) => e.stopPropagation()}
+                onClick={onClose}
+                className="relative z-10 w-9 h-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white"
+                aria-label="Yopish"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Pastki qism: caption + Instagram havolasi */}
+          {(item.permalink || (item.caption && mediaUrl)) && (
+            <div
+              className={`absolute bottom-0 left-0 right-0 px-4 pt-10 bg-gradient-to-t from-black/70 to-transparent transition-opacity ${paused ? 'opacity-0' : 'opacity-100'}`}
+              style={{ paddingBottom: 'max(18px, env(safe-area-inset-bottom))' }}
+            >
+              {item.caption && mediaUrl && (
+                <p className="text-white text-[13px] leading-snug line-clamp-3 mb-3">{item.caption}</p>
+              )}
+              {item.permalink && /^https?:\/\//.test(item.permalink) && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerUp={(e) => e.stopPropagation()}
+                  onClick={() => {
+                    setPaused(true);
+                    try { tg?.openLink ? tg.openLink(item.permalink) : window.open(item.permalink, '_blank'); } catch (e) {}
+                  }}
+                  className="relative z-10 w-full py-3 rounded-2xl bg-white/15 backdrop-blur border border-white/25 text-white text-sm font-bold active:scale-[0.98] transition-transform"
+                >
+                  {item.kind === 'promo' ? 'Batafsil' : "📸 Instagram'da ochish"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // ─── 3. Bottom Navigation Bar (4 Tabs) ─────────────────────────────
     function BottomNavBar({ activeTab, onSelectTab, cartBadge }) {
       const items = [
@@ -680,6 +1086,44 @@
           } catch (e) {}
         })();
       }, []);
+
+      // 📸 Promo bannerlar + Instagram Stories/Reels
+      const [promoBanners, setPromoBanners] = useState([]);
+      const [promoStories, setPromoStories] = useState([]);
+      const [storyViewerIndex, setStoryViewerIndex] = useState(null);
+      const [viewedStoryIds, setViewedStoryIds] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('darxan_viewed_stories') || '[]')); }
+        catch (e) { return new Set(); }
+      });
+
+      useEffect(() => {
+        let cancelled = false;
+        const loadPromo = async () => {
+          try {
+            const res = await fetch(`${API_BASE}/api/promo-stories`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (cancelled) return;
+            setPromoBanners(Array.isArray(data.banners) ? data.banners : []);
+            setPromoStories(Array.isArray(data.stories) ? data.stories : []);
+          } catch (e) {}
+        };
+        loadPromo();
+        const t = setInterval(loadPromo, 5 * 60 * 1000);
+        return () => { cancelled = true; clearInterval(t); };
+      }, []);
+
+      const markStoryViewed = useCallback((id) => {
+        setViewedStoryIds((prev) => {
+          if (prev.has(id)) return prev;
+          const nextSet = new Set(prev);
+          nextSet.add(id);
+          try { localStorage.setItem('darxan_viewed_stories', JSON.stringify([...nextSet].slice(-200))); } catch (e) {}
+          return nextSet;
+        });
+      }, []);
+
+      const closeStoryViewer = useCallback(() => setStoryViewerIndex(null), []);
 
       // Catalog, Cart, User & Orders State
       const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
@@ -1734,6 +2178,28 @@
                ============================================================ */}
             {activeTab === 'home' && (
               <div className="space-y-4 animate-ios-in">
+                {/* A) Avto-aylanuvchi aksiya bannerlari */}
+                <PromoCarousel
+                  banners={promoBanners}
+                  onBannerClick={(b) => {
+                    hapticImpact('light');
+                    const link = String(b.link || '');
+                    if (link.startsWith('category:')) {
+                      const cid = parseInt(link.split(':')[1], 10);
+                      if (cid) { setSearchQuery(''); setSelectedCatId(cid); }
+                    } else if (/^https?:\/\//.test(link)) {
+                      try { tg?.openLink ? tg.openLink(link) : window.open(link, '_blank'); } catch (e) {}
+                    }
+                  }}
+                />
+
+                {/* B) Instagram Stories & Reels kartochkalari */}
+                <StoryCards
+                  stories={promoStories}
+                  viewedIds={viewedStoryIds}
+                  onOpen={(i) => setStoryViewerIndex(i)}
+                />
+
                 {/* Nearest Branch Banner in Catalog (if detected) */}
                 {nearestBranchInfo?.nearest_branch && (
                   <div
@@ -2668,6 +3134,16 @@
                 </button>
               </div>
             </div>
+          )}
+
+          {/* ─── 📸 Full-screen Story Viewer ─── */}
+          {storyViewerIndex !== null && promoStories.length > 0 && (
+            <StoryViewer
+              stories={promoStories}
+              startIndex={Math.min(storyViewerIndex, promoStories.length - 1)}
+              onClose={closeStoryViewer}
+              onViewed={markStoryViewed}
+            />
           )}
 
           {/* ─── 3. Bottom Navigation Bar ─── */}

@@ -9,14 +9,12 @@ from utils.states import OrderStates
 from keyboards.main_menu import get_user_main_menu, get_admin_main_menu
 from utils.helpers import notify_admins_new_order
 from utils.i18n import get_text
-from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
+from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT, RENDER_URL
 import os
 # To'lov handler — aylanma importdan qochish uchun ichida import qilinadi
 
 # ── WebApp URL ─────────────────────────────────────────────────────────
-# Render deployment URL — .env dan olinadi, fallback bilan
-_RENDER_URL = os.getenv("RENDER_URL", "https://fast-food-1-p4bx.onrender.com")
-MAP_WEBAPP_URL = f"{_RENDER_URL}/webapp/map.html"
+MAP_WEBAPP_URL = f"{RENDER_URL}/webapp/map.html"
 
 
 def _get_menu_for_user(user_id, lang="uz"):

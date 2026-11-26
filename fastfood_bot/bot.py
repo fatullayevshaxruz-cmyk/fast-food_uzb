@@ -8,7 +8,7 @@ from database.connection import init_db_pool, close_db_pool
 from database.crud import init_database
 from database.seed import seed_data
 from database.db_manager import init_dynamic_menu_db
-from config import BOT_TOKEN
+from config import BOT_TOKEN, RENDER_URL
 
 logging.basicConfig(level=logging.INFO)
 
@@ -29,7 +29,6 @@ from handlers.webapp_menu import register_webapp_menu_handlers  # 🌐 WebApp me
 from handlers.feedback import register_feedback_handlers         # ⭐ Baholash tizimi
 
 # ── Self-ping: Render uxlab qolmasligi uchun ─────────────────────────
-RENDER_URL = os.getenv("RENDER_URL") or os.getenv("WEB_APP_URL", "https://fast-food-uzb.onrender.com")
 PING_INTERVAL = 10 * 60  # 10 daqiqa (Render 15 daqiqada uxlaydi)
 
 async def keep_alive():
@@ -37,7 +36,11 @@ async def keep_alive():
     Har 10 daqiqada o'z-o'zini ping qiladi.
     Render free tier 15 daqiqa so'rov bo'lmasa uxlab qoladi —
     bu funksiya shu holatni oldini oladi.
+    Lokal kompyuterda ishlayotganda uzoq serverga ping yubormaydi.
     """
+    if not (os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_URL")):
+        logging.info("ℹ️ Lokal muhit: Render keep-alive o'chirildi.")
+        return
     await asyncio.sleep(30)  # Botning to'liq ishga tushishini kutish
     ping_url = f"{RENDER_URL}/health"
     fail_count = 0

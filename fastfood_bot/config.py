@@ -94,3 +94,11 @@ DELIVERY_FREE_KM       = float(os.getenv("DELIVERY_FREE_KM", "3.0"))     # 3 km 
 
 # ── Kuryer telefoni (yetkazilmoqda xabarida ko'rsatiladi) ────────────
 COURIER_PHONE = os.getenv("COURIER_PHONE", "")   # misol: "+998901234567"
+
+# ── WebApp / Render tashqi URL (avtomatik aniqlanadi) ─────────────────
+RENDER_URL = (
+    os.getenv("RENDER_EXTERNAL_URL")
+    or os.getenv("RENDER_URL")
+    or os.getenv("WEB_APP_URL")
+    or "https://fast-food-uzb.onrender.com"
+).rstrip("/")

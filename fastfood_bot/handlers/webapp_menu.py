@@ -344,6 +344,39 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
             pass
 
 
+async def process_webapp_shared_contact(message: types.Message):
+    """
+    Telegram WebApp.requestContact() orqali mijoz o'zining haqiqiy Telegram raqamini
+    tasdiqlaganda qabul qilib eslab qoladi.
+    """
+    try:
+        from database.crud import create_user, remember_phone
+        from security.sanitization import validate_uzbek_phone
+
+        user = message.from_user
+        if not message.contact or not user:
+            return
+        lang = await get_user_language(user.id)
+
+        if message.contact.user_id and int(message.contact.user_id) != int(user.id):
+            await message.answer(get_text("phone_belongs_to_other", lang), parse_mode="HTML")
+            return
+
+        is_valid, norm_phone, _ = validate_uzbek_phone(message.contact.phone_number)
+        if not is_valid or not norm_phone:
+            await message.answer(get_text("invalid_uz_phone", lang), parse_mode="HTML")
+            return
+
+        await create_user(user.id, user.username, user.full_name)
+        await remember_phone(user.id, norm_phone, force_owner=True)
+        await message.answer(
+            get_text("phone_saved_entry", lang, phone=norm_phone),
+            parse_mode="HTML",
+        )
+    except Exception as e:
+        log.warning(f"Shared contact error: {e}")
+
+
 def register_webapp_menu_handlers(dp: Dispatcher):
     """
     WebApp cart/order handlerini ro'yxatdan o'tkazadi.
@@ -354,4 +387,9 @@ def register_webapp_menu_handlers(dp: Dispatcher):
         _is_webapp_cart,
         content_types=ContentTypes.WEB_APP_DATA,
         state="*",
+    )
+    dp.register_message_handler(
+        process_webapp_shared_contact,
+        content_types=ContentTypes.CONTACT,
+        state=None,
     )

@@ -439,15 +439,22 @@ async def api_auth_send_otp(request):
         if gw_err != "not_configured":
             logging.warning(f"Telegram Gateway warning ({norm_phone}): {gw_err}")
 
-        # 2) Hozircha Telegram Gateway token yo'q bo'lsa -> agar raqam egasi DB da bo'lsa o'sha user_id ga,
-        # aks holda hozirgi bot chatiga (user_id) yuboramiz.
+        # 2) Hozircha Telegram Gateway token yo'q bo'lsa -> kod FAQAT raqamning o'z egasiga
+        #    (owner_uid) yuboriladi, hech qachon begona so'rovchiga yuborilmaydi!
         owner_uid = await find_telegram_owner_by_phone(norm_phone)
-        target_uid = owner_uid or user_id
-        if not target_uid:
+        if not owner_uid:
             return add_cors_headers(web.json_response({
-                'error': "❌ Kodni yuborish uchun avval botda /start bosing!"
+                'error': (
+                    "⚠️ Kiritilgan raqam sizning hozirgi Telegram akkauntingizga biriktirilmagan "
+                    "(va bazada egasi topilmadi). Begona raqamning o'z Telegramiga (@VerificationCodes) "
+                    "kod yuborish uchun TELEGRAM_GATEWAY_TOKEN ulanishi shart — kod raqamni kiritgan "
+                    "odamning Telegramiga yuborilmaydi. Agar bu o'zingizning Telegram raqamingiz bo'lsa, "
+                    "pastdagi Telegram orqali tasdiqlash tugmasini bosing."
+                ),
+                'needs_telegram_contact': True,
             }, status=400))
 
+        target_uid = owner_uid
         bot = request.app.get('bot')
         if not bot:
             return add_cors_headers(web.json_response({
@@ -461,14 +468,14 @@ async def api_auth_send_otp(request):
                     f"🔐 <b>Fast-Food — Akkaunt tasdiqlash kodi</b>\n\n"
                     f"📱 Raqam: <b>{norm_phone}</b>\n"
                     f"🔑 Tasdiqlash kodi: <code>{code}</code>\n\n"
-                    f"<i>Uni begonalarga bermang!</i>"
+                    f"<i>Bu kod faqat shu raqam egasiga yuborildi. Uni begonalarga bermang!</i>"
                 ),
                 parse_mode="HTML"
             )
         except Exception as e:
             logging.warning(f"OTP Telegram send warning (target_uid={target_uid}): {e}")
             return add_cors_headers(web.json_response({
-                'error': "❌ Tasdiqlash kodini Telegram botga yuborib bo'lmadi. Botda /start bosilganini tekshiring."
+                'error': "❌ Tasdiqlash kodini raqam egasining Telegramiga yuborib bo'lmadi."
             }, status=400))
 
         return add_cors_headers(web.json_response({
@@ -476,7 +483,7 @@ async def api_auth_send_otp(request):
             'method': 'telegram',
             'sent_via_bot': True,
             'sent_via_gateway': False,
-            'is_own_account': bool(not owner_uid or (user_id and int(owner_uid) == int(user_id))),
+            'is_own_account': bool(user_id and int(owner_uid) == int(user_id)),
         }))
     except Exception as e:
         logging.error(f'/api/auth/send-otp error: {e}')

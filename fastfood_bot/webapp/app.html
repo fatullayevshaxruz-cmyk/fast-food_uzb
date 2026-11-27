@@ -1461,6 +1461,23 @@
         return true;
       };
 
+      const handleRequestTelegramContact = () => {
+        setPhoneError('');
+        const wa = window.Telegram?.WebApp;
+        if (!wa || typeof wa.requestContact !== 'function') {
+          setPhoneError("❌ Joriy Telegram raqamini ulash faqat Telegram ilovasi ichida ishlaydi.");
+          return;
+        }
+        hapticImpact('medium');
+        wa.requestContact((shared) => {
+          if (!shared) return;
+          isEditingPhoneRef.current = false;
+          setTimeout(() => fetchUserOrders(), 700);
+          setTimeout(() => fetchUserOrders(), 1800);
+          setTimeout(() => fetchUserOrders(), 3200);
+        });
+      };
+
       const handleSendCode = async () => {
         setPhoneError('');
         setOtpError('');
@@ -2086,6 +2103,17 @@
                           <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
                       </button>
+
+                      {typeof window.Telegram?.WebApp?.requestContact === 'function' && (
+                        <button
+                          type="button"
+                          onClick={handleRequestTelegramContact}
+                          className="w-full py-3.5 rounded-2xl bg-sky-50 hover:bg-sky-100 active:scale-[0.98] text-sky-700 font-bold text-[13px] border border-sky-200 transition-all duration-200 flex items-center justify-center gap-2"
+                        >
+                          <span>📲</span>
+                          <span>Joriy Telegram raqamimni tasdiqlash</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

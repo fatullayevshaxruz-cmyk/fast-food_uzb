@@ -396,7 +396,7 @@ async def api_auth_send_otp(request):
                     await bot.send_message(
                         chat_id=user_id,
                         text=(
-                            f"🔐 <b>Darxan Burger — Код подтверждения</b>\n\n"
+                            f"🔐 <b>Fast-Food — Код подтверждения</b>\n\n"
                             f"📱 Номер: <b>{phone}</b>\n"
                             f"🔑 Ваш код: <code>{code}</code>\n\n"
                             f"<i>Никому не сообщайте этот код.</i>"
@@ -942,7 +942,7 @@ async def api_order_payment_status(request):
 async def api_promo_stories(request):
     """
     GET /api/promo-stories
-    Bosh sahifa uchun aksiya bannerlari va @darxan_burger Stories/Reels ro'yxati.
+    Bosh sahifa uchun aksiya bannerlari va @kafe_fastfood Stories/Reels ro'yxati.
     """
     from utils.instagram_sync import get_promo_payload
     try:

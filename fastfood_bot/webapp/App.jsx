@@ -347,7 +347,7 @@ export default function App() {
           <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-neutral-100 space-y-5">
             <div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/10 text-[#E50914] text-xs font-bold mb-2">
-                🍔 Darxan Burger ID
+                🍔 Fast-Food ID
               </span>
               <h1 className="text-2xl font-extrabold tracking-tight text-neutral-900">
                 Авторизация

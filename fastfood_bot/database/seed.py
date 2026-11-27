@@ -1,7 +1,7 @@
 from .connection import get_db_pool
 
 async def seed_data():
-    """Darxan Burger restoran menyusini bazaga kiritish."""
+    """Fast-Food restoran menyusini bazaga kiritish."""
     pool = await get_db_pool()
 
     # ── Avval eski menyu ma'lumotlarni tozalash ──────────────────────
@@ -22,7 +22,7 @@ async def seed_data():
         await conn.execute("DELETE FROM products")
         await conn.execute("DELETE FROM categories")
 
-    # ── Darxan Burger kategoriyalari ─────────────────────────────────
+    # ── Fast-Food kategoriyalari ─────────────────────────────────
     categories = [
         (1, "Burgerlar",        "🍔", "Бургеры",          "Burgers"),
         (2, "Lavash & Doner",   "🌯", "Лаваш и Донер",   "Wrap & Doner"),
@@ -55,13 +55,13 @@ async def seed_data():
             except Exception:
                 pass
 
-    # ── Darxan Burger mahsulotlari ───────────────────────────────────
+    # ── Fast-Food mahsulotlari ───────────────────────────────────
     products = [
         # ── Burgerlar (cat 1) ────────────────────────────────────────
-        (1, 1, "Darxan Cheese Burger",
+        (1, 1, "Kafeyimiz Chizburgeri",
          "Shirali mol go'shti kotleti, pishloq, salat bargi, pomidor, maxsus sous.",
-         "Дархан Чизбургер", "Сочная говяжья котлета, сыр, лист салата, помидор, фирменный соус.",
-         "Darxan Cheese Burger", "Juicy beef patty, cheese, lettuce, tomato, special sauce.",
+         "Фирменный Чизбургер кафе", "Сочная говяжья котлета, сыр, лист салата, помидор, фирменный соус.",
+         "Cafe Cheese Burger", "Juicy beef patty, cheese, lettuce, tomato, special sauce.",
          38000, "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600"),
 
         (2, 1, "Double Cheese Burger",
@@ -70,10 +70,10 @@ async def seed_data():
          "Double Cheese Burger", "Two beef patties, double cheese, special sauce.",
          48000, "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=600"),
 
-        (3, 1, "Darxan Big Burger",
+        (3, 1, "Kafeyimiz Big Burgeri",
          "Katta porsiya mol go'shti, pishloq, achchiq sous, qovurilgan piyoz.",
-         "Дархан Биг Бургер", "Большая порция говядины, сыр, острый соус, жареный лук.",
-         "Darxan Big Burger", "Large beef portion, cheese, spicy sauce, fried onions.",
+         "Биг Бургер кафе", "Большая порция говядины, сыр, острый соус, жареный лук.",
+         "Cafe Big Burger", "Large beef portion, cheese, spicy sauce, fried onions.",
          55000, "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=600"),
 
         (4, 1, "Chicken Burger",
@@ -88,10 +88,10 @@ async def seed_data():
          "BBQ Burger", "BBQ sauce, smoked cheese, beef, fried onions.",
          42000, "https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=600"),
 
-        (6, 1, "Darxan Kids Burger",
+        (6, 1, "Kafeyimiz Kids Burgeri",
          "Bolalar uchun kichik burger — kotlet, pishloq, ketchup.",
-         "Дархан Детский Бургер", "Маленький бургер для детей — котлета, сыр, кетчуп.",
-         "Darxan Kids Burger", "Small burger for kids — patty, cheese, ketchup.",
+         "Детский Бургер кафе", "Маленький бургер для детей — котлета, сыр, кетчуп.",
+         "Cafe Kids Burger", "Small burger for kids — patty, cheese, ketchup.",
          25000, "https://images.unsplash.com/photo-1550547660-d9450f859349?w=600"),
 
         # ── Lavash & Doner (cat 2) ───────────────────────────────────
@@ -182,10 +182,10 @@ async def seed_data():
          3000, "https://images.unsplash.com/photo-1461009683693-342af2f2d6ce?w=600"),
 
         # ── Kombo to'plamlar (cat 5) ─────────────────────────────────
-        (21, 5, "Darxan Kombo",
-         "Darxan Cheese Burger + Kartoshka Fri + Coca Cola 0.5L.",
-         "Дархан Комбо", "Дархан Чизбургер + Картошка фри + Кока-Кола 0.5Л.",
-         "Darxan Combo", "Darxan Cheese Burger + French Fries + Coca Cola 0.5L.",
+        (21, 5, "Kafe Kombo",
+         "Kafeyimiz Chizburgeri + Kartoshka Fri + Coca Cola 0.5L.",
+         "Комбо кафе", "Чизбургер кафе + Картошка фри + Кока-Кола 0.5Л.",
+         "Cafe Combo", "Cafe Cheese Burger + French Fries + Coca Cola 0.5L.",
          52000, "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=600"),
 
         (22, 5, "Double Kombo",
@@ -195,9 +195,9 @@ async def seed_data():
          62000, "https://images.unsplash.com/photo-1550547660-d9450f859349?w=600"),
 
         (23, 5, "Oilaviy Kombo",
-         "2ta Darxan Burger + 2ta Kartoshka Fri + 2ta Ichimlik.",
-         "Семейное Комбо", "2 бургера Дархан + 2 картошки фри + 2 напитка.",
-         "Family Combo", "2 Darxan Burgers + 2 Fries + 2 Drinks.",
+         "2ta Kafe Burger + 2ta Kartoshka Fri + 2ta Ichimlik.",
+         "Семейное Комбо", "2 бургера кафе + 2 картошки фри + 2 напитка.",
+         "Family Combo", "2 Cafe Burgers + 2 Fries + 2 Drinks.",
          95000, "https://images.unsplash.com/photo-1550547660-d9450f859349?w=600"),
     ]
 
@@ -225,7 +225,7 @@ async def seed_data():
                 except Exception:
                     pass
 
-        # ── Darxan Burger filiallari (Buxoro shahridagi 2 ta haqiqiy filial) ──
+        # ── Fast-Food filiallari (Buxoro shahridagi 2 ta haqiqiy filial) ──
         try:
             from config import BRANCH_1_CHANNEL_ID, BRANCH_2_CHANNEL_ID, DELIVERY_CHANNEL_ID, ADMIN_CHANNEL_ID
             ch_branch_1 = BRANCH_1_CHANNEL_ID or ADMIN_CHANNEL_ID
@@ -238,7 +238,7 @@ async def seed_data():
             initial_branches = [
                 (
                     1,
-                    "Darxan Burger - Abu Ali ibn Sino",
+                    "Fast-Food - Abu Ali ibn Sino",
                     "Buxoro sh., Abu Ali ibn Sino ko'chasi",
                     39.783420,
                     64.422526,
@@ -249,7 +249,7 @@ async def seed_data():
                 ),
                 (
                     2,
-                    "Darxan Burger - 5-mikrorayon",
+                    "Fast-Food - 5-mikrorayon",
                     "Buxoro sh., 5-mikrorayon",
                     39.748796,
                     64.414346,
@@ -274,16 +274,16 @@ async def seed_data():
         except Exception:
             pass
 
-        # ── Standart promokod (DARXAN10) ──
+        # ── Standart promokod (KAFE10) ──
         try:
-            existing_promo = await conn.fetchrow("SELECT id FROM promo_codes WHERE code = 'DARXAN10'")
+            existing_promo = await conn.fetchrow("SELECT id FROM promo_codes WHERE code = 'KAFE10'")
             if not existing_promo:
                 await conn.execute(
                     """
                     INSERT INTO promo_codes (code, discount_percent, max_uses, min_order_amount, is_active)
                     VALUES ($1, $2, $3, $4, $5)
                     """,
-                    "DARXAN10", 10, 0, 30000, True,
+                    "KAFE10", 10, 0, 30000, True,
                 )
         except Exception:
             pass

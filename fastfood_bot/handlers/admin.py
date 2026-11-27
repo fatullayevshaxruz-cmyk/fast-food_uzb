@@ -67,7 +67,7 @@ async def _build_admin_dashboard_text() -> str:
     time_str, cafe_badge = _uz_now_str()
 
     return (
-        f"👑 <b>DARXAN BURGER — ADMIN BOSHQARUV MARKAZI</b>\n"
+        f"👑 <b>FAST-FOOD — ADMIN BOSHQARUV MARKAZI</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🕒 Toshkent vaqti: <b>{time_str}</b> | {cafe_badge}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -209,7 +209,7 @@ async def _build_creative_stats_text() -> tuple:
     comp_bar = _progress_bar(comp_cnt, max(1, orders_count), 10)
 
     text = (
-        f"📊 <b>DARXAN BURGER — BIZNES ANALITIKA MARKAZI</b>\n"
+        f"📊 <b>FAST-FOOD — BIZNES ANALITIKA MARKAZI</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"👥 Jami mijozlar: <b>{users_count:,} nafar</b>\n"
         f"📦 Jami buyurtmalar: <b>{orders_count:,} ta</b>\n"
@@ -313,7 +313,7 @@ async def start_broadcast(message: types.Message):
     markup.add(InlineKeyboardButton("❌ Bekor qilish", callback_data="adm_bcast_cancel"))
 
     await message.answer(
-        f"📢 <b>DARXAN BURGER — MARKETING VA E'LONLAR STUDIYASI</b>\n"
+        f"📢 <b>FAST-FOOD — MARKETING VA E'LONLAR STUDIYASI</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"👥 Qabul qiluvchilar auditoriyasi: <b>{users_count} nafar mijoz</b>\n\n"
         f"✨ <b>Qo'llab-quvvatlanadigan formatlar:</b>\n"
@@ -713,7 +713,7 @@ async def admin_addprod_category(call: types.CallbackQuery, state: FSMContext):
         "➕ <b>YANGI TAOM KONSTRUKTORI</b>\n"
         "<code>[████░░░░░░] 2/5 qadam</code>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "✍️ <b>2-qadam:</b> Mahsulotning <b>nomini</b> yozing (masalan: <i>Double Darxan Burger</i>):\n\n"
+        "✍️ <b>2-qadam:</b> Mahsulotning <b>nomini</b> yozing (masalan: <i>Double Kafe Burger</i>):\n\n"
         "<i>Bekor qilish uchun: /bekor</i>",
         parse_mode="HTML"
     )
@@ -1093,7 +1093,7 @@ async def _build_promo_list_view():
 
     if not codes:
         text = (
-            "🎟 <b>DARXAN BURGER — PROMOKODLAR VA AKSIYALAR MARKAZI</b>\n"
+            "🎟 <b>FAST-FOOD — PROMOKODLAR VA AKSIYALAR MARKAZI</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "📭 <i>Hozircha promokodlar yaratilmagan.</i>\n\n"
             "💡 Mijozlarni jalb qilish uchun yangi promokod yarating yoki 1 bosishda VIP kupon generatsiya qiling!"
@@ -1105,7 +1105,7 @@ async def _build_promo_list_view():
         return text, markup
 
     text = (
-        "🎟 <b>DARXAN BURGER — PROMOKODLAR VA AKSIYALAR MARKAZI</b>\n"
+        "🎟 <b>FAST-FOOD — PROMOKODLAR VA AKSIYALAR MARKAZI</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n\n"
     )
     for c in codes:
@@ -1152,7 +1152,7 @@ async def admin_promo_list(message: types.Message):
 async def admin_promo_random_cb(call: types.CallbackQuery):
     if not _is_admin(call.from_user.id):
         return
-    prefixes = ["DARXAN", "BURGER", "VIP", "COMBO", "HOT"]
+    prefixes = ["KAFE", "BURGER", "VIP", "COMBO", "HOT"]
     pct = random.choice([15, 20, 25])
     code = f"{random.choice(prefixes)}{pct}"
     await create_promo_code(code, pct, max_uses=50)
@@ -1198,7 +1198,7 @@ async def admin_promo_announce_cb(call: types.CallbackQuery):
     limit_str = f"Faqat dastlabki <b>{max_u} ta</b> buyurtma uchun!" if max_u > 0 else "Barcha mijozlarimiz uchun amal qiladi!"
 
     promo_ad = (
-        f"🔥 <b>DARXAN BURGERDAN MAXSUS AKSIYA!</b> 🍔\n\n"
+        f"🔥 <b>KAFEYIMIZDAN MAXSUS AKSIYA!</b> 🍔\n\n"
         f"Sevimli burgerlaringizga <b>{pct}% CHEGIRMA</b> e'lon qilamiz! 🎉\n\n"
         f"🎟 Maxsus promokod: <code>{code}</code>\n"
         f"⏳ {limit_str}\n\n"
@@ -1223,7 +1223,7 @@ async def admin_promo_create_start(call: types.CallbackQuery, state: FSMContext)
     await call.message.answer(
         "🎟 <b>YANGI PROMOKOD YARATISH (1/3)</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Promokod nomini yozing (masalan: <code>DARXAN25</code> yoki <code>BAHOR20</code>):\n\n"
+        "Promokod nomini yozing (masalan: <code>KAFE25</code> yoki <code>BAHOR20</code>):\n\n"
         "<i>Bekor qilish uchun: /bekor</i>",
         parse_mode="HTML"
     )
@@ -1401,7 +1401,7 @@ async def _send_csv_report(target_message: types.Message, period: str = "all"):
 
     csv_bytes = output.getvalue().encode('utf-8-sig')
     doc = io.BytesIO(csv_bytes)
-    doc.name = f"darxan_buyurtmalar_{period}_{now_date.isoformat()}.csv"
+    doc.name = f"kafe_buyurtmalar_{period}_{now_date.isoformat()}.csv"
 
     period_names = {
         "today": "Bugungi kun",
@@ -1410,7 +1410,7 @@ async def _send_csv_report(target_message: types.Message, period: str = "all"):
     }
 
     caption = (
-        f"📥 <b>DARXAN BURGER — BUXGALTERIYA HISOBOTI (CSV)</b>\n"
+        f"📥 <b>FAST-FOOD — BUXGALTERIYA HISOBOTI (CSV)</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🗓 Davr: <b>{period_names.get(period, 'Barchasi')}</b>\n"
         f"📦 Jami buyurtmalar: <b>{len(filtered)} ta</b>\n"
@@ -1451,10 +1451,10 @@ async def admin_csv_export_cb(call: types.CallbackQuery):
                 str(ud.get("created_at") or "")[:16],
             ])
         doc = io.BytesIO(output.getvalue().encode("utf-8-sig"))
-        doc.name = f"darxan_mijozlar_{date.today().isoformat()}.csv"
+        doc.name = f"kafe_mijozlar_{date.today().isoformat()}.csv"
         await call.message.answer_document(
             doc,
-            caption=f"👥 <b>Darxan Burger — Mijozlar bazasi</b>\nJami: <b>{len(users)} nafar</b> mijoz",
+            caption=f"👥 <b>Fast-Food — Mijozlar bazasi</b>\nJami: <b>{len(users)} nafar</b> mijoz",
             parse_mode="HTML"
         )
         await call.answer("👥 Mijozlar bazasi yuklandi!")
@@ -1723,21 +1723,21 @@ async def delivery_start_callback(call: types.CallbackQuery):
         if user_lang == "ru":
             customer_msg = (
                 f"🍽🔥 <b>Отличная новость! Заказ #{order_id} готов!</b>\n\n"
-                f"✨ Ваши горячие и ароматные блюда от <b>Darxan Burger</b> готовы и уже подаются к вашему столу!\n\n"
+                f"✨ Ваши горячие и ароматные блюда от <b>нашего кафе</b> готовы и уже подаются к вашему столу!\n\n"
                 f"🪑 <b>Стол:</b> {address}\n\n"
                 f"😋 <i>Приятного аппетита!</i> 🍔"
             )
         elif user_lang == "en":
             customer_msg = (
                 f"🍽🔥 <b>Great news! Order #{order_id} is ready!</b>\n\n"
-                f"✨ Your hot and delicious <b>Darxan Burger</b> meal is ready and being served to your table!\n\n"
+                f"✨ Your hot and delicious <b>Fast-Food</b> cafe meal is ready and being served to your table!\n\n"
                 f"🪑 <b>Table:</b> {address}\n\n"
                 f"😋 <i>Bon appétit!</i> 🍔"
             )
         else:
             customer_msg = (
                 f"🍽🔥 <b>Suyunchi! Buyurtma #{order_id} tayyor bo'ldi!</b>\n\n"
-                f"✨ Issiqqina va xushbo'y <b>Darxan Burger</b> taomlaringiz tayyorlandi "
+                f"✨ Issiqqina va xushbo'y <b>kafeyimiz</b> taomlari tayyorlandi "
                 f"va stolingizga olib kelinmoqda! 🚀\n\n"
                 f"🪑 <b>Stol:</b> {address}\n\n"
                 f"😋 <i>Yoqimli ishtaha tilaymiz!</i> 🍔"
@@ -1746,7 +1746,7 @@ async def delivery_start_callback(call: types.CallbackQuery):
         if user_lang == "ru":
             customer_msg = (
                 f"🛵💨 <b>Отличная новость! Заказ #{order_id} уже в пути!</b>\n\n"
-                f"🔥 Ваши горячие и ароматные блюда от <b>Darxan Burger</b> бережно упакованы в термосумку, "
+                f"🔥 Ваши горячие и ароматные блюда от <b>нашего кафе</b> бережно упакованы в термосумку, "
                 f"и наш курьер уже мчится к вам! 🚀\n\n"
                 f"📍 <b>Адрес доставки:</b> {address}"
                 f"{courier_phone_line}\n\n"
@@ -1755,7 +1755,7 @@ async def delivery_start_callback(call: types.CallbackQuery):
         elif user_lang == "en":
             customer_msg = (
                 f"🛵💨 <b>Great news! Order #{order_id} is on the way!</b>\n\n"
-                f"🔥 Your hot and delicious <b>Darxan Burger</b> meal is packed in a thermal bag "
+                f"🔥 Your hot and delicious <b>Fast-Food</b> cafe meal is packed in a thermal bag "
                 f"and our courier is heading straight to you! 🚀\n\n"
                 f"📍 <b>Address:</b> {address}"
                 f"{courier_phone_line}\n\n"
@@ -1764,7 +1764,7 @@ async def delivery_start_callback(call: types.CallbackQuery):
         else:
             customer_msg = (
                 f"🛵💨 <b>Suyunchi! Buyurtma #{order_id} yo'lga chiqdi!</b>\n\n"
-                f"🔥 Issiqqina va xushbo'y <b>Darxan Burger</b> taomlaringiz maxsus termo-qopga joylandi "
+                f"🔥 Issiqqina va xushbo'y <b>kafeyimiz</b> taomlari maxsus termo-qopga joylandi "
                 f"va chaqqon kuryerimiz siz tomonga uchib ketmoqda! 🚀\n\n"
                 f"📍 <b>Manzil:</b> {address}"
                 f"{courier_phone_line}\n\n"
@@ -1858,21 +1858,21 @@ async def delivery_finish_callback(call: types.CallbackQuery):
     if user_lang == "ru":
         customer_msg = (
             f"🎉🍔 <b>Заказ #{order_id} успешно доставлен!</b>\n\n"
-            f"💖 От всей души благодарим вас за выбор <b>Darxan Burger</b>!\n"
+            f"💖 От всей души благодарим вас за выбор нашего <b>Fast-Food</b> кафе!\n"
             f"😋 Надеемся, наши горячие блюда подарят вам отличное настроение. <b>Приятного аппетита!</b> ✨\n\n"
             f"🔄 <i>Будем рады видеть вас снова!</i> ❤️"
         )
     elif user_lang == "en":
         customer_msg = (
             f"🎉🍔 <b>Order #{order_id} has been delivered!</b>\n\n"
-            f"💖 Thank you so much for choosing <b>Darxan Burger</b>!\n"
+            f"💖 Thank you so much for choosing our <b>Fast-Food</b> cafe!\n"
             f"😋 We hope you enjoy your meal. <b>Bon appétit!</b> ✨\n\n"
             f"🔄 <i>We look forward to serving you again soon!</i> ❤️"
         )
     else:
         customer_msg = (
             f"🎉🍔 <b>Buyurtma #{order_id} muvaffaqiyatli yetkazildi!</b>\n\n"
-            f"💖 <b>Darxan Burger</b>ni tanlaganingiz uchun chin qalbimizdan rahmat!\n"
+            f"💖 <b>Fast-Food</b> kafeyimizni tanlaganingiz uchun chin qalbimizdan rahmat!\n"
             f"😋 Issiqqina taomlarimiz sizga va yaqinlaringizga manzur bo'ladi degan umiddamiz. "
             f"<b>Yoqimli ishtaha tilaymiz!</b> ✨\n\n"
             f"🔄 <i>Yana shunday mazali lahzalar uchun sizni doim kutib qolamiz!</i> ❤️"

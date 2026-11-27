@@ -1,7 +1,7 @@
 """
 security/__init__.py
 ====================
-Darxan Burger Bot & Mini App Kiberxavfsizlik Paketi.
+Fast-Food Bot & Mini App Kiberxavfsizlik Paketi.
 """
 
 from .webapp_auth import (

@@ -129,20 +129,20 @@ async def dispatch_paid_order_to_channel(
             if lang == "ru":
                 msg = (
                     f"🎉💳 <b>Оплата успешно получена!</b>\n\n"
-                    f"Заказ <b>#{order_id}</b> на сумму <b>{total_amount:,} сум</b> оплачен и передан на кухню <b>Darxan Burger</b>!\n\n"
+                    f"Заказ <b>#{order_id}</b> на сумму <b>{total_amount:,} сум</b> оплачен и передан на кухню <b>Fast-Food</b>!\n\n"
                     f"👨‍🍳 Наши повара уже начали готовить ваш вкуснейший заказ. "
                     f"Статус заказа вы можете отслеживать в разделе «Заказ»."
                 )
             elif lang == "en":
                 msg = (
                     f"🎉💳 <b>Payment successfully received!</b>\n\n"
-                    f"Order <b>#{order_id}</b> ({total_amount:,} UZS) is paid and sent to <b>Darxan Burger</b> kitchen!\n\n"
+                    f"Order <b>#{order_id}</b> ({total_amount:,} UZS) is paid and sent to our <b>Fast-Food</b> kitchen!\n\n"
                     f"👨‍🍳 We have started preparing your meal. Track live status anytime in 'Orders' tab."
                 )
             else:
                 msg = (
                     f"🎉💳 <b>To'lovingiz muvaffaqiyatli qabul qilindi!</b>\n\n"
-                    f"Buyurtma <b>#{order_id}</b> ({total_amount:,} so'm) to'landi va <b>Darxan Burger</b> oshxonasiga yetkazildi!\n\n"
+                    f"Buyurtma <b>#{order_id}</b> ({total_amount:,} so'm) to'landi va <b>Fast-Food</b> oshxonasiga yetkazildi!\n\n"
                     f"👨‍🍳 Oshpazlarimiz sizning issiq va mazali buyurtmangizni tayyorlashga kirishishdi. "
                     f"Buyurtma holatini bot menyusida yoki Web App da kuzatishingiz mumkin! 🍔✨"
                 )

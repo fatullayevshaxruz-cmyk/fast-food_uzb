@@ -35,7 +35,7 @@ PAYMENT_HMAC_SECRET = (
     or os.getenv("CLICK_SECRET_KEY")
     or os.getenv("PAYME_KEY")
     or BOT_TOKEN
-    or "darxan-default-secret"
+    or "kafe-default-secret"
 ).strip()
 
 PAYME_MERCHANT_KEY = os.getenv("PAYME_KEY", "").strip()

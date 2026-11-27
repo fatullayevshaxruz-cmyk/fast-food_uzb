@@ -78,7 +78,7 @@ async def admin_open_dynamic_panel(message: types.Message):
         active_prods = await conn.fetchval("SELECT COUNT(*) FROM products WHERE is_active != 0") or 0
     cats = await get_categories()
     panel_text = (
-        f"🛠 <b>Darxan Burger — Menyu Boshqaruvi Studiyasi</b>\n"
+        f"🛠 <b>Fast-Food — Menyu Boshqaruvi Studiyasi</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"📂 Kategoriyalar: <b>{len(cats)} ta</b>\n"
         f"🍔 Jami taomlar: <b>{total_prods} ta</b> (🟢 Faol: <b>{active_prods} ta</b>)\n"

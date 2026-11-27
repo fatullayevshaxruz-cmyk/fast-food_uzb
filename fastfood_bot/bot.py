@@ -88,7 +88,7 @@ async def on_startup(dp):
                     "menu_button": {
                         "type": "web_app",
                         "text": "Меню",
-                        "web_app": {"url": f"{RENDER_URL}/webapp/app.html?v=18"},
+                        "web_app": {"url": f"{RENDER_URL}/webapp/app.html?v=19"},
                     }
                 },
                 timeout=aiohttp.ClientTimeout(total=8),
@@ -133,7 +133,7 @@ def main():
 
     # ── Health check web server ──────────────────────────────────────
     async def health_check(request):
-        return web.Response(text="OK — Darxan Burger Bot is running! 🍔")
+        return web.Response(text="OK — Fast-Food Bot is running! 🍔")
 
     # ── REST API: WebApp uchun menyu ma'lumotlari ──────────────────
     async def api_menu_handler(request):

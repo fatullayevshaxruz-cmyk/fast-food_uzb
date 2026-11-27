@@ -1,7 +1,7 @@
 """
 utils/geo_routing.py
 ====================
-Darxan Burger — Geosamoviy (Geospatial) Hisob-kitoblar va
+Fast-Food — Geosamoviy (Geospatial) Hisob-kitoblar va
 "Eng Yaqin Filialni Avtomatik Aniqlash" (Nearest Branch Routing) moduli.
 
 Arxitektura va imkoniyatlar:
@@ -55,11 +55,11 @@ OSRM_ROUTE_URL = (
     "{lon1},{lat1};{lon2},{lat2}?overview=false"
 )
 
-# Darxan Burger Buxoro shahridagi 2 ta haqiqiy filiali (2GIS ma'lumotlari asosida)
+# Fast-Food Buxoro shahridagi 2 ta haqiqiy filiali (2GIS ma'lumotlari asosida)
 DEFAULT_FALLBACK_BRANCHES: List[Dict[str, Any]] = [
     {
         "id": 1,
-        "name": "Darxan Burger - Abu Ali ibn Sino",
+        "name": "Fast-Food - Abu Ali ibn Sino",
         "address": "Buxoro sh., Abu Ali ibn Sino ko'chasi",
         "latitude": 39.783420,
         "longitude": 64.422526,
@@ -70,7 +70,7 @@ DEFAULT_FALLBACK_BRANCHES: List[Dict[str, Any]] = [
     },
     {
         "id": 2,
-        "name": "Darxan Burger - 5-mikrorayon",
+        "name": "Fast-Food - 5-mikrorayon",
         "address": "Buxoro sh., 5-mikrorayon",
         "latitude": 39.748796,
         "longitude": 64.414346,
@@ -140,7 +140,7 @@ async def get_driving_or_haversine_km(
             async with session.get(
                 url,
                 timeout=aiohttp.ClientTimeout(total=2.5),
-                headers={"User-Agent": "DarxanBurgerGeoRouter/3.0"},
+                headers={"User-Agent": "FastFoodGeoRouter/3.0"},
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
@@ -373,7 +373,7 @@ async def resolve_branch_for_order(
                     async with session.get(
                         "https://nominatim.openstreetmap.org/search",
                         params={"format": "json", "q": q, "limit": "1"},
-                        headers={"User-Agent": "DarxanBurgerGeoRouter/3.0"},
+                        headers={"User-Agent": "FastFoodGeoRouter/3.0"},
                         timeout=aiohttp.ClientTimeout(total=2.5),
                     ) as resp:
                         if resp.status == 200:
@@ -438,7 +438,7 @@ async def route_order_to_nearest_branch(
     target_admin_chat_id = (
         branch_info.get("admin_chat_id") if branch_info else None
     ) or BRANCH_1_CHANNEL_ID or ADMIN_CHANNEL_ID
-    branch_name = branch_info.get("name") if branch_info else "Darxan Burger - Abu Ali ibn Sino"
+    branch_name = branch_info.get("name") if branch_info else "Fast-Food - Abu Ali ibn Sino"
     distance_km = branch_info.get("distance_km") if branch_info else None
 
     await notify_admins_new_order(

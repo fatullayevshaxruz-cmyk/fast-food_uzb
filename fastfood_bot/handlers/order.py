@@ -236,7 +236,7 @@ async def process_location(message: types.Message, state: FSMContext):
             if not geo_res.get("in_delivery_zone", True):
                 await message.answer(
                     f"⚠️ <b>{OUT_OF_ZONE_MESSAGE_UZ}</b>\n\n"
-                    f"🏢 Eng yaqin filial: <b>{nb.get('name', 'Darxan Burger')}</b> ({nb.get('distance_km', 0)} km)\n"
+                    f"🏢 Eng yaqin filial: <b>{nb.get('name', 'Fast-Food')}</b> ({nb.get('distance_km', 0)} km)\n"
                     f"📏 Maksimal yetkazish masofasi: <b>{nb.get('max_delivery_km', 15)} km</b>",
                     parse_mode="HTML"
                 )
@@ -306,7 +306,7 @@ async def process_webapp_location(message: types.Message, state: FSMContext):
         if not geo_res.get("in_delivery_zone", True):
             await message.answer(
                 f"⚠️ <b>{OUT_OF_ZONE_MESSAGE_UZ}</b>\n\n"
-                f"🏢 Eng yaqin filial: <b>{nb.get('name', 'Darxan Burger')}</b> ({nb.get('distance_km', 0)} km)\n"
+                f"🏢 Eng yaqin filial: <b>{nb.get('name', 'Fast-Food')}</b> ({nb.get('distance_km', 0)} km)\n"
                 f"📏 Maksimal yetkazish masofasi: <b>{nb.get('max_delivery_km', 15)} km</b>",
                 parse_mode="HTML"
             )

@@ -33,7 +33,7 @@ TRANSLATIONS = {
     # ── Start xabari ──────────────────────────────────────────────
     "welcome": {
         "uz": (
-            "🍔 <b>Darxan Burger</b> ga xush kelibsiz, <b>{name}</b>!\n\n"
+            "🍔 <b>Fast-Food</b> ga xush kelibsiz, <b>{name}</b>!\n\n"
             "Tez va mazali taomlar — bir tugma bilan! 🚀\n\n"
             "📱 <b>Buyurtma berish:</b> \"🍽 Menyu\" tugmasini bosing\n"
             "🔍 <b>Mahsulot izlash:</b> \"🔍 Izlash\" tugmasini bosing\n"
@@ -44,7 +44,7 @@ TRANSLATIONS = {
             "Yoqimli ishtaha tilaymiz! 😋"
         ),
         "ru": (
-            "🍔 Добро пожаловать в <b>Darxan Burger</b>, <b>{name}</b>!\n\n"
+            "🍔 Добро пожаловать в <b>Fast-Food</b>, <b>{name}</b>!\n\n"
             "Быстрая и вкусная еда — в один клик! 🚀\n\n"
             "📱 <b>Заказать:</b> нажмите \"🍽 Меню\"\n"
             "🔍 <b>Поиск блюд:</b> нажмите \"🔍 Поиск\"\n"
@@ -55,7 +55,7 @@ TRANSLATIONS = {
             "Приятного аппетита! 😋"
         ),
         "en": (
-            "🍔 Welcome to <b>Darxan Burger</b>, <b>{name}</b>!\n\n"
+            "🍔 Welcome to <b>Fast-Food</b>, <b>{name}</b>!\n\n"
             "Fast and delicious food — in one tap! 🚀\n\n"
             "📱 <b>Order:</b> press \"🍽 Menu\"\n"
             "🔍 <b>Search:</b> press \"🔍 Search\"\n"
@@ -288,7 +288,7 @@ TRANSLATIONS = {
             "{discount}\n"
             "  💰 <b>Jami: {total:,} so'm</b>"
             "{note}\n\n"
-            "✨ <i>Buyurtmangiz <b>Darxan Burger</b> oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔"
+            "✨ <i>Buyurtmangiz <b>kafe</b> oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔"
         ),
         "ru": (
             "⏳ <b>Ожидаем подтверждения заказа от кафе...</b>\n\n"
@@ -298,7 +298,7 @@ TRANSLATIONS = {
             "{discount}\n"
             "  💰 <b>Итого: {total:,} сум</b>"
             "{note}\n\n"
-            "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔"
+            "✨ <i>Ваш заказ отправлен в <b>Fast-Food</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔"
         ),
         "en": (
             "⏳ <b>Waiting for the cafe to accept your order...</b>\n\n"
@@ -308,7 +308,7 @@ TRANSLATIONS = {
             "{discount}\n"
             "  💰 <b>Total: {total:,} sum</b>"
             "{note}\n\n"
-            "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔"
+            "✨ <i>Your order has been sent to our <b>Fast-Food</b> kitchen! We will notify you as soon as the cafe accepts it!</i> 🍔"
         ),
     },
     "order_success_delivery": {
@@ -322,7 +322,7 @@ TRANSLATIONS = {
             "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Jami: {total:,} so'm</b>"
             "{note}\n\n"
-            "✨ <i>Buyurtmangiz <b>Darxan Burger</b>ga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔🚀"
+            "✨ <i>Buyurtmangiz <b>kafeyimiz</b>ga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔🚀"
         ),
         "ru": (
             "⏳ <b>Ожидаем подтверждения заказа от кафе...</b>\n\n"
@@ -334,7 +334,7 @@ TRANSLATIONS = {
             "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Итого: {total:,} сум</b>"
             "{note}\n\n"
-            "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔🚀"
+            "✨ <i>Ваш заказ отправлен в <b>Fast-Food</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔🚀"
         ),
         "en": (
             "⏳ <b>Waiting for the cafe to accept your order...</b>\n\n"
@@ -346,25 +346,25 @@ TRANSLATIONS = {
             "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Total: {total:,} sum</b>"
             "{note}\n\n"
-            "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔🚀"
+            "✨ <i>Your order has been sent to our <b>Fast-Food</b> cafe! We will notify you as soon as the cafe accepts it!</i> 🍔🚀"
         ),
     },
     "cafe_order_accepted_delivery": {
         "uz": (
             "🎉🍔 <b>Xushxabar! Buyurtmangiz #{order_id} kafe tomonidan qabul qilindi!</b> 🔥\n\n"
-            "👨‍🍳 <b>Darxan Burger</b>ning mohir oshpazlari hoziroq siz uchun eng barra va shirali masalliqlardan taomingizni tayyorlashni boshlab yuborishdi!\n\n"
+            "👨‍🍳 <b>Kafeyimiz</b>ning mohir oshpazlari hoziroq siz uchun eng barra va shirali masalliqlardan taomingizni tayyorlashni boshlab yuborishdi!\n\n"
             "🛵 <i>Taomingiz tayyor bo'lishi bilan chaqqon kuryerimiz issiqqina holatda manzilingizga yetkazib beradi!</i>\n\n"
             "❤️ <b>Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha tilaymiz!</b> 😋✨"
         ),
         "ru": (
             "🎉🍔 <b>Отличная новость! Ваш заказ #{order_id} принят кафе!</b> 🔥\n\n"
-            "👨‍🍳 Лучшие повара <b>Darxan Burger</b> уже начали готовить для вас из самых свежих и сочных ингредиентов!\n\n"
+            "👨‍🍳 Лучшие повара <b>нашего кафе</b> уже начали готовить для вас из самых свежих и сочных ингредиентов!\n\n"
             "🛵 <i>Как только всё будет готово, наш быстрый курьер доставит ваш заказ горячим прямо к вам!</i>\n\n"
             "❤️ <b>Спасибо, что выбрали нас! Приятного аппетита!</b> 😋✨"
         ),
         "en": (
             "🎉🍔 <b>Great news! Your order #{order_id} has been accepted by the cafe!</b> 🔥\n\n"
-            "👨‍🍳 The master chefs at <b>Darxan Burger</b> have already started preparing your meal with the freshest, juiciest ingredients!\n\n"
+            "👨‍🍳 The master chefs at our <b>Fast-Food</b> cafe have already started preparing your meal with the freshest, juiciest ingredients!\n\n"
             "🛵 <i>As soon as it's ready, our fast courier will deliver it piping hot right to your door!</i>\n\n"
             "❤️ <b>Thank you for choosing us! Enjoy your meal!</b> 😋✨"
         ),
@@ -372,19 +372,19 @@ TRANSLATIONS = {
     "cafe_order_accepted_eat_in": {
         "uz": (
             "🎉🍔 <b>Xushxabar! Buyurtmangiz #{order_id} kafe tomonidan qabul qilindi!</b> 🔥\n\n"
-            "👨‍🍳 <b>Darxan Burger</b>ning mohir oshpazlari hoziroq siz uchun eng barra va shirali masalliqlardan taomingizni mehr bilan tayyorlashni boshlashdi!\n\n"
+            "👨‍🍳 <b>Kafeyimiz</b>ning mohir oshpazlari hoziroq siz uchun eng barra va shirali masalliqlardan taomingizni mehr bilan tayyorlashni boshlashdi!\n\n"
             "🍽️ <i>Issiqqina va mazali taomingiz tayyor bo'lishi bilan ofitsiantimiz stolingizga olib keladi!</i>\n\n"
             "❤️ <b>Bizni tanlaganingiz uchun rahmat! Yoqimli ishtaha tilaymiz!</b> 😋✨"
         ),
         "ru": (
             "🎉🍔 <b>Отличная новость! Ваш заказ #{order_id} принят кафе!</b> 🔥\n\n"
-            "👨‍🍳 Лучшие повара <b>Darxan Burger</b> уже с любовью готовят для вас из самых свежих и сочных ингредиентов!\n\n"
+            "👨‍🍳 Лучшие повара <b>нашего кафе</b> уже с любовью готовят для вас из самых свежих и сочных ингредиентов!\n\n"
             "🍽️ <i>Как только блюдо будет готово, официант сразу принесёт его к вашему столику!</i>\n\n"
             "❤️ <b>Спасибо, что выбрали нас! Приятного аппетита!</b> 😋✨"
         ),
         "en": (
             "🎉🍔 <b>Great news! Your order #{order_id} has been accepted by the cafe!</b> 🔥\n\n"
-            "👨‍🍳 The master chefs at <b>Darxan Burger</b> have already started preparing your meal with love and the freshest ingredients!\n\n"
+            "👨‍🍳 The master chefs at our <b>Fast-Food</b> cafe have already started preparing your meal with love and the freshest ingredients!\n\n"
             "🍽️ <i>As soon as your delicious meal is ready, our waiter will bring it right to your table!</i>\n\n"
             "❤️ <b>Thank you for choosing us! Enjoy your meal!</b> 😋✨"
         ),
@@ -396,7 +396,7 @@ TRANSLATIONS = {
             "<i>(Oshxonada buyurtmalar juda ko'payib ketgani yoki ayrim masalliqlar vaqtincha tugab qolgani sababli bo'lishi mumkin).</i>\n\n"
             "🌟 Sizning vaqtingiz va ishonchingiz biz uchun juda qadrli! Iltimos, birozdan so'ng qayta urinib ko'ring yoki menyudan boshqa mazali taomlarimizni tanlang.\n\n"
             "📞 Savollar bo'lsa, biz bilan bog'laning: <b>+998943265755</b>\n"
-            "🍔 <b>Darxan Burger</b> — sizga xizmat ko'rsatishdan doim mamnunmiz! ❤️"
+            "🍔 <b>Fast-Food</b> — sizga xizmat ko'rsatishdan doim mamnunmiz! ❤️"
         ),
         "ru": (
             "😔💔 <b>Уважаемый клиент, приносим искренние извинения!</b>\n\n"
@@ -404,7 +404,7 @@ TRANSLATIONS = {
             "<i>(Возможно, из-за высокой загруженности кухни или временного отсутствия некоторых ингредиентов).</i>\n\n"
             "🌟 Мы очень ценим ваше время и доверие! Пожалуйста, попробуйте оформить заказ чуть позже или выберите другие вкусные блюда из нашего меню.\n\n"
             "📞 По всем вопросам: <b>+998943265755</b>\n"
-            "🍔 <b>Darxan Burger</b> — всегда рады вам! ❤️"
+            "🍔 <b>Fast-Food</b> — всегда рады вам! ❤️"
         ),
         "en": (
             "😔💔 <b>Dear customer, we sincerely apologize!</b>\n\n"
@@ -412,7 +412,7 @@ TRANSLATIONS = {
             "<i>(This may be due to high kitchen demand or temporary unavailability of certain ingredients).</i>\n\n"
             "🌟 We truly value your time and trust! Please try again shortly or explore other delicious items on our menu.\n\n"
             "📞 For any questions, contact us: <b>+998943265755</b>\n"
-            "🍔 <b>Darxan Burger</b> — always happy to serve you! ❤️"
+            "🍔 <b>Fast-Food</b> — always happy to serve you! ❤️"
         ),
     },
 
@@ -874,7 +874,7 @@ TRANSLATIONS = {
             "{discount}\n"
             "  💰 <b>Jami: {total:,} so'm</b>\n\n"
             "💳 <i>Online to'lov: {charge_id}</i>\n\n"
-            "✨ <i>Buyurtmangiz <b>Darxan Burger</b> oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔"
+            "✨ <i>Buyurtmangiz <b>kafe</b> oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔"
         ),
         "ru": (
             "✅ <b>Оплата принята!</b>\n"
@@ -885,7 +885,7 @@ TRANSLATIONS = {
             "{discount}\n"
             "  💰 <b>Итого: {total:,} сум</b>\n\n"
             "💳 <i>Онлайн оплата: {charge_id}</i>\n\n"
-            "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔"
+            "✨ <i>Ваш заказ отправлен в <b>Fast-Food</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔"
         ),
         "en": (
             "✅ <b>Payment accepted!</b>\n"
@@ -896,7 +896,7 @@ TRANSLATIONS = {
             "{discount}\n"
             "  💰 <b>Total: {total:,} sum</b>\n\n"
             "💳 <i>Online payment: {charge_id}</i>\n\n"
-            "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔"
+            "✨ <i>Your order has been sent to our <b>Fast-Food</b> kitchen! We will notify you as soon as the cafe accepts it!</i> 🍔"
         ),
     },
     "payment_accepted_delivery": {
@@ -911,7 +911,7 @@ TRANSLATIONS = {
             "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Jami: {total:,} so'm</b>\n\n"
             "💳 <i>Online to'lov amalga oshirildi</i>\n\n"
-            "✨ <i>Buyurtmangiz <b>Darxan Burger</b>ga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔🚀"
+            "✨ <i>Buyurtmangiz <b>kafeyimiz</b>ga yuborildi! Kafe buyurtmani qabul qilishi bilan sizga darhol xabar beramiz!</i> 🍔🚀"
         ),
         "ru": (
             "✅ <b>Оплата принята!</b>\n"
@@ -924,7 +924,7 @@ TRANSLATIONS = {
             "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Итого: {total:,} сум</b>\n\n"
             "💳 <i>Оплата прошла успешно</i>\n\n"
-            "✨ <i>Ваш заказ отправлен в <b>Darxan Burger</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔🚀"
+            "✨ <i>Ваш заказ отправлен в <b>Fast-Food</b>! Как только кафе примет заказ, мы сразу сообщим вам!</i> 🍔🚀"
         ),
         "en": (
             "✅ <b>Payment accepted!</b>\n"
@@ -937,7 +937,7 @@ TRANSLATIONS = {
             "  ━━━━━━━━━━━━━━━\n"
             "  💰 <b>Total: {total:,} sum</b>\n\n"
             "💳 <i>Online payment completed</i>\n\n"
-            "✨ <i>Your order has been sent to <b>Darxan Burger</b>! We will notify you as soon as the cafe accepts it!</i> 🍔🚀"
+            "✨ <i>Your order has been sent to our <b>Fast-Food</b> cafe! We will notify you as soon as the cafe accepts it!</i> 🍔🚀"
         ),
     },
     "payment_accepted_empty_cart": {

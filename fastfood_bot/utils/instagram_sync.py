@@ -1,5 +1,5 @@
 """
-📸 Instagram → Mini App sinxronizatsiyasi (@darxan_burger)
+📸 Instagram → Mini App sinxronizatsiyasi (@kafe_fastfood)
 
 Faol Stories va oxirgi Reels mediyalarini olib, lokal `webapp/media/stories/`
 papkasiga keshlaydi va `/api/promo-stories` orqali Mini App ga beradi.
@@ -39,7 +39,7 @@ BANNERS_FILE = DATA_DIR / "promo_banners.json"
 SESSION_FILE = DATA_DIR / "ig_session.json"
 
 # ── Sozlamalar (.env) ───────────────────────────────────────────────────
-IG_TARGET = (os.getenv("INSTAGRAM_TARGET") or "darxan_burger").strip().lstrip("@")
+IG_TARGET = (os.getenv("INSTAGRAM_TARGET") or "kafe_fastfood").strip().lstrip("@")
 SYNC_INTERVAL = max(600, int(os.getenv("INSTAGRAM_SYNC_INTERVAL", "1800") or 1800))
 GRAPH_TOKEN = (os.getenv("INSTAGRAM_ACCESS_TOKEN") or "").strip()
 GRAPH_USER_ID = (os.getenv("INSTAGRAM_BUSINESS_ID") or "").strip()
@@ -63,8 +63,8 @@ SHOWCASE_URL_PREFIX = "/webapp/media/showcase"
 DEFAULT_BANNERS: List[Dict[str, Any]] = [
     {
         "id": 1,
-        "title": "🎁 Darxan Kombo Setlar",
-        "subtitle": "Burger + Fri + Coca-Cola • DARXAN10 (-10%)",
+        "title": "🎁 Kafe Kombo Setlar",
+        "subtitle": "Burger + Fri + Coca-Cola • KAFE10 (-10%)",
         "image": f"{SHOWCASE_URL_PREFIX}/banner_combo.jpg",
         "color": "linear-gradient(135deg,#991B1B 0%,#E50914 100%)",
         "link": "category:5",
@@ -112,7 +112,7 @@ DEFAULT_SHOWCASE_ITEMS: List[Dict[str, Any]] = [
         "url": f"{SHOWCASE_URL_PREFIX}/story_burgers.jpg",
         "thumbnail": f"{SHOWCASE_URL_PREFIX}/story_burgers.jpg",
         "caption": "🍔 Shirali Grill Burgerlar",
-        "subtitle": "Double Cheese, BBQ & Darxan Big — 35 000 so'mdan",
+        "subtitle": "Double Cheese, BBQ & Kafeyimiz Big Burgeri — 35 000 so'mdan",
         "badge": "🔥 Xit",
         "theme_color": "#E50914",
         "category_id": 1,
@@ -172,7 +172,7 @@ DEFAULT_SHOWCASE_ITEMS: List[Dict[str, Any]] = [
         "url": f"{SHOWCASE_URL_PREFIX}/story_combo.jpg",
         "thumbnail": f"{SHOWCASE_URL_PREFIX}/story_combo.jpg",
         "caption": "🎁 VIP Kombo To'plamlar",
-        "subtitle": "DARXAN10 promokodi bilan −10% chegirma!",
+        "subtitle": "KAFE10 promokodi bilan −10% chegirma!",
         "badge": "🎁 -10%",
         "theme_color": "#B91C1C",
         "category_id": 5,
@@ -187,7 +187,7 @@ DEFAULT_SHOWCASE_ITEMS: List[Dict[str, Any]] = [
         "url": f"{SHOWCASE_URL_PREFIX}/reel_combo.mp4",
         "thumbnail": f"{SHOWCASE_URL_PREFIX}/reel_combo_thumb.jpg",
         "caption": "🎬 Kombo To'plamlar Reels",
-        "subtitle": "Darxan Kombo, Double Kombo va Oilaviy Kombo",
+        "subtitle": "Kafe Kombo, Double Kombo va Oilaviy Kombo",
         "badge": "🎁 Kombo",
         "theme_color": "#B91C1C",
         "category_id": 5,

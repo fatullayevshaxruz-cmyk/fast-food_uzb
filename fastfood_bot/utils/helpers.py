@@ -86,7 +86,7 @@ async def resolve_human_address(address: str = None, lat: float = None, lon: flo
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
             async with session.get(
                 nominatim_url,
-                headers={"User-Agent": "DarxanBurgerBot/3.0 (uzbekistan delivery)"},
+                headers={"User-Agent": "FastFoodBot/3.0 (uzbekistan delivery)"},
                 timeout=aiohttp.ClientTimeout(total=6),
             ) as resp:
                 if resp.status == 200:

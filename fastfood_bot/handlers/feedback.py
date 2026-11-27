@@ -60,7 +60,7 @@ async def send_feedback_request(bot: Bot, user_id: int, order_id: int, lang: str
             )
             promo_msg = (
                 "🍔✨ <b>Хотите снова порадовать себя горячими и сочными бургерами?</b>\n\n"
-                "😋 В интерактивном меню <b>Darxan Burger</b> вас ждут фирменные бургеры, "
+                "😋 В интерактивном меню <b>Fast-Food</b> вас ждут фирменные бургеры, "
                 "выгодные комбо и прохладительные напитки в один клик!\n\n"
                 "👇 <b>Нажмите на кнопку ниже, чтобы открыть Web-приложение:</b>"
             )
@@ -72,7 +72,7 @@ async def send_feedback_request(bot: Bot, user_id: int, order_id: int, lang: str
                 ),
             )
             promo_msg = (
-                "🍔✨ <b>Craving more hot and juicy burgers from Darxan Burger?</b>\n\n"
+                "🍔✨ <b>Craving more hot and juicy burgers from our Fast-Food cafe?</b>\n\n"
                 "😋 Explore our interactive menu of signature burgers, combos, and refreshing drinks anytime!\n\n"
                 "👇 <b>Tap the button below to launch the Web App:</b>"
             )
@@ -85,7 +85,7 @@ async def send_feedback_request(bot: Bot, user_id: int, order_id: int, lang: str
             )
             promo_msg = (
                 "🍔✨ <b>Yana issiqqina va mazali taomlarimizdan xohlaysizmi?</b>\n\n"
-                "😋 <b>Darxan Burger</b> interaktiv menyusida suvli burgerlar, "
+                "😋 <b>Fast-Food</b> interaktiv menyusida suvli burgerlar, "
                 "qarsildoq fri hamda muzdek ichimliklar sizni kutmoqda!\n\n"
                 "👇 <b>Quyidagi tugmani bosib Web-ilovaga kiring:</b>"
             )

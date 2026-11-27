@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Darxan Burger — Telegram Mini App</title>
+  <title>Fast-Food — Telegram Mini App</title>
 
   <!-- Telegram Mini App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -161,8 +161,8 @@
         products: [
           {
             id: 101,
-            name: 'Darxan Cheese Burger',
-            name_ru: 'Darxan Cheese Burger',
+            name: 'Kafeyimiz Chizburgeri',
+            name_ru: 'Чизбургер кафе',
             description: 'Сочная говяжья котлета, двойной чеддер, фирменный соус и свежие овощи',
             price: 38000,
             image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
@@ -201,8 +201,8 @@
         products: [
           {
             id: 201,
-            name: 'Darxan Combo X1',
-            name_ru: 'Darxan Combo X1',
+            name: 'Kafe Kombo X1',
+            name_ru: 'Комбо кафе X1',
             description: 'Чизбургер + Картофель фри + Coca-Cola 0.5л',
             price: 58000,
             image_url: 'https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=600&q=80',
@@ -550,7 +550,7 @@
           <div className="flex items-center justify-between gap-2 px-0.5">
             <div className="flex items-center gap-2 min-w-0">
               <h3 className="text-[15px] font-extrabold text-neutral-900 truncate">📸 Stories & Reels</h3>
-              <span className="text-[11px] font-semibold text-neutral-400 shrink-0">@darxan_burger</span>
+              <span className="text-[11px] font-semibold text-neutral-400 shrink-0">@kafe_fastfood</span>
             </div>
             {hasStories && hasReels && (
               <div className="flex items-center gap-1 bg-neutral-200/70 p-0.5 rounded-full shrink-0">
@@ -816,7 +816,7 @@
             <div className="mt-3 flex items-center gap-2.5">
               <img src={`${API_BASE}/webapp/logo.jpg`} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/70" />
               <div className="flex-1 min-w-0 text-white">
-                <div className="text-[13px] font-bold leading-tight">darxan_burger</div>
+                <div className="text-[13px] font-bold leading-tight">kafe_fastfood</div>
                 <div className="text-[11px] opacity-75 leading-tight">
                   {item.kind === 'reel' ? 'Reels' : item.kind === 'story' ? 'Story' : 'Aksiya'}
                   {timeAgo ? ` · ${timeAgo}` : ''}
@@ -1105,8 +1105,8 @@
     }
 
     // ─── Main Application ──────────────────────────────────────────────
-    function DarxanMiniApp() {
-      const storagePhoneKey = `darxan_phone_${initialUid || 'guest'}`;
+    function KafeMiniApp() {
+      const storagePhoneKey = `kafe_phone_${initialUid || 'guest'}`;
       const initialSavedPhone =
         localStorage.getItem(storagePhoneKey) || localStorage.getItem('user_phone') || '';
       const initialSavedDigits = (() => {
@@ -1166,7 +1166,7 @@
       const [promoStories, setPromoStories] = useState([]);
       const [storyViewerData, setStoryViewerData] = useState(null);
       const [viewedStoryIds, setViewedStoryIds] = useState(() => {
-        try { return new Set(JSON.parse(localStorage.getItem('darxan_viewed_stories') || '[]')); }
+        try { return new Set(JSON.parse(localStorage.getItem('kafe_viewed_stories') || '[]')); }
         catch (e) { return new Set(); }
       });
 
@@ -1192,7 +1192,7 @@
           if (prev.has(id)) return prev;
           const nextSet = new Set(prev);
           nextSet.add(id);
-          try { localStorage.setItem('darxan_viewed_stories', JSON.stringify([...nextSet].slice(-200))); } catch (e) {}
+          try { localStorage.setItem('kafe_viewed_stories', JSON.stringify([...nextSet].slice(-200))); } catch (e) {}
           return nextSet;
         });
       }, []);
@@ -1213,16 +1213,16 @@
       const [favorites, setFavorites] = useState(new Set());
       const [userProfile, setUserProfile] = useState({
         id: initialUid,
-        name: tg?.initDataUnsafe?.user?.first_name || 'Гость Darxan',
+        name: tg?.initDataUnsafe?.user?.first_name || 'Гость Кафе',
         phone: hasInitialSavedPhone ? `+998 ${formatUzPhone(initialSavedDigits)}` : '',
         is_admin: false,
       });
-      const ordersStorageKey = `darxan_orders_${initialUid || 'guest'}`;
+      const ordersStorageKey = `kafe_orders_${initialUid || 'guest'}`;
       const [orders, setOrders] = useState(() => {
         try {
           const raw =
             localStorage.getItem(ordersStorageKey) ||
-            localStorage.getItem('darxan_orders_history') ||
+            localStorage.getItem('kafe_orders_history') ||
             '[]';
           const parsed = JSON.parse(raw);
           return Array.isArray(parsed) ? parsed : [];
@@ -1236,7 +1236,7 @@
           try {
             const serialized = JSON.stringify(ordersList);
             localStorage.setItem(ordersStorageKey, serialized);
-            localStorage.setItem('darxan_orders_history', serialized);
+            localStorage.setItem('kafe_orders_history', serialized);
           } catch (e) {}
         },
         [ordersStorageKey]
@@ -1869,13 +1869,13 @@
               <div className="flex items-center gap-2.5">
                 <img
                   src="/webapp/logo.jpg"
-                  alt="Darxan Burger"
+                  alt="Fast-Food"
                   className="w-10 h-10 rounded-full object-cover shadow-[0_4px_12px_rgba(229,9,20,0.3)] ring-1 ring-[#E50914]/20 shrink-0 bg-[#E50914]"
                 />
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="font-extrabold text-[15px] tracking-tight text-neutral-900">
-                      Darxan Burger
+                      Fast-Food
                     </span>
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   </div>
@@ -2377,7 +2377,7 @@
                               {product.name_ru || product.name}
                             </h4>
                             <p className="text-[11px] text-neutral-400 line-clamp-2 mt-0.5">
-                              {product.description || 'Свежий фирменный бургер Darxan'}
+                              {product.description || 'Свежий фирменный бургер кафе'}
                             </p>
                           </div>
 
@@ -2879,8 +2879,8 @@
                             icon: '⏳',
                             title: 'Buyurtmangiz kafe qabul qilishini kutyapmiz...',
                             message: isEatIn
-                              ? '✨ Buyurtmangiz Darxan Burger oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan shu yerda holat darhol yangilanadi 🍽🍔'
-                              : '✨ Buyurtmangiz Darxan Burger oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan shu yerda holat darhol yangilanadi 🍔🚀',
+                              ? '✨ Buyurtmangiz kafe oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan shu yerda holat darhol yangilanadi 🍽🍔'
+                              : '✨ Buyurtmangiz kafe oshxonasiga yuborildi! Kafe buyurtmani qabul qilishi bilan shu yerda holat darhol yangilanadi 🍔🚀',
                             step: 1,
                           },
                           preparing: {
@@ -2919,8 +2919,8 @@
                               ? '💖 Buyurtma stolga yetkazildi — Yoqimli ishtaha!'
                               : '💖 Buyurtma topshirildi — Yoqimli ishtaha!',
                             message: isEatIn
-                              ? "✨ Buyurtmangiz stolingizga muvaffaqiyatli yetkazildi! Darxan Burger'ni tanlaganingiz uchun katta rahmat! Yana kutib qolamiz 🍔❤️"
-                              : "✨ Buyurtmangiz muvaffaqiyatli yetkazildi! Darxan Burger'ni tanlaganingiz uchun katta rahmat! Yana kutib qolamiz 🍔❤️",
+                              ? "✨ Buyurtmangiz stolingizga muvaffaqiyatli yetkazildi! Fast-Food kafeyimizni tanlaganingiz uchun katta rahmat! Yana kutib qolamiz 🍔❤️"
+                              : "✨ Buyurtmangiz muvaffaqiyatli yetkazildi! Fast-Food kafeyimizni tanlaganingiz uchun katta rahmat! Yana kutib qolamiz 🍔❤️",
                             step: 4,
                           },
                           cancelled: {
@@ -3244,7 +3244,7 @@
     }
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<DarxanMiniApp />);
+    root.render(<KafeMiniApp />);
   </script>
 </body>
 </html>

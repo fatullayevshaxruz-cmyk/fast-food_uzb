@@ -14,7 +14,8 @@ from database.crud import (
     delete_promo_code, get_promo_code, check_user_promo_used, update_user_phone,
     clear_cart, add_to_cart, get_cart_items, create_order, add_order_items,
     get_user_language, use_promo_code, get_product_name,
-    check_promo_eligibility, remember_phone, find_telegram_owner_by_phone
+    check_promo_eligibility, remember_phone, find_telegram_owner_by_phone,
+    is_phone_remembered
 )
 from database.connection import get_db_pool
 from utils.helpers import notify_admins_new_order, resolve_human_address
@@ -506,15 +507,15 @@ async def api_auth_verify_otp(request):
             return add_cors_headers(web.json_response({'success': False, 'error': err_msg}, status=400))
 
         owner_uid = await find_telegram_owner_by_phone(norm_phone)
-        target_uid = user_id or owner_uid
-        if norm_phone:
-            try:
-                await remember_phone(target_uid or None, norm_phone)
-            except Exception as e:
-                logging.warning(f"remember_phone warning: {e}")
+        target_uid = user_id or owner_uid or int("998" + norm_phone[-9:])
+        try:
+            await remember_phone(target_uid, norm_phone)
+        except Exception as e:
+            logging.warning(f"remember_phone warning: {e}")
 
         return add_cors_headers(web.json_response({
             'success': True,
+            'verified': True,
             'phone': norm_phone
         }))
     except Exception as e:
@@ -536,6 +537,10 @@ async def api_profile_update(request):
                 return add_cors_headers(web.json_response({
                     'error': "❌ Raqam noto'g'ri! Faqat mavjud O'zbekiston raqami (+998...) qabul qilinadi."
                 }, status=400))
+            if not await is_phone_remembered(norm_phone):
+                return add_cors_headers(web.json_response({
+                    'error': "⚠️ Raqam hali tasdiqlash kodi orqali tasdiqlanmagan."
+                }, status=403))
             owner_uid = await find_telegram_owner_by_phone(norm_phone)
             if owner_uid and int(owner_uid) != int(user_id):
                 return add_cors_headers(web.json_response({
@@ -713,11 +718,10 @@ async def api_order_create(request):
         # ── 3. Foydalanuvchi telefon raqami va Promo kod tekshirish ───
         user_row = await get_user(user_id)
         phone = payload_phone or (user_row['phone_number'] if user_row and user_row['phone_number'] else None)
-        if payload_phone:
-            try:
-                await remember_phone(user_id, payload_phone)
-            except Exception:
-                pass
+        if not phone or not await is_phone_remembered(phone):
+            return add_cors_headers(web.json_response({
+                'error': "⚠️ Raqam tasdiqlanmagan! Avval Web-ilovada tasdiqlash kodi orqali raqamingizni tasdiqlang."
+            }, status=400))
 
         discount_pct = 0
         if promo_code:

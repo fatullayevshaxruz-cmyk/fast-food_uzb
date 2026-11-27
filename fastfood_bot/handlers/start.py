@@ -81,7 +81,7 @@ async def _send_welcome_menu(message: types.Message, user: types.User, lang: str
     """Tanlangan til bo'yicha asosiy menyu va xush kelibsiz xabarini yuboradi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-    webapp_url = f"{MENU_WEBAPP_URL}?v=19&lang={lang}&user_id={user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=20&lang={lang}&user_id={user.id}"
     web_btn_labels = {
         "uz": "🌐 Menu ilova",
         "ru": "🌐 Меню приложение",
@@ -126,7 +126,7 @@ def _get_phone_entry_keyboard(lang: str) -> ReplyKeyboardMarkup:
 
 
 async def process_language_choice(message: types.Message, state: FSMContext):
-    """Til tanlandi — DBga saqlash va telefon raqamni tekshirish."""
+    """Til tanlandi — DBga saqlash va WebApp / asosiy menyuni ko'rsatish."""
     current_state = await state.get_state()
     lang = _extract_lang(
         message.text,
@@ -151,21 +151,8 @@ async def process_language_choice(message: types.Message, state: FSMContext):
         await state.finish()
 
     from aiogram.types import ReplyKeyboardRemove
-    user_row = await get_user(user.id)
-    saved_phone = user_row["phone_number"] if user_row else None
-    has_valid_phone, _, _ = validate_uzbek_phone(saved_phone)
-
-    if has_valid_phone:
-        await message.answer(get_text("language_selected", lang), reply_markup=ReplyKeyboardRemove())
-        await _send_welcome_menu(message, user, lang)
-    else:
-        await message.answer(get_text("language_selected", lang))
-        await RegistrationStates.waiting_for_phone.set()
-        await message.answer(
-            get_text("ask_phone_entry", lang),
-            reply_markup=_get_phone_entry_keyboard(lang),
-            parse_mode="HTML",
-        )
+    await message.answer(get_text("language_selected", lang), reply_markup=ReplyKeyboardRemove())
+    await _send_welcome_menu(message, user, lang)
 
 
 async def process_registration_phone(message: types.Message, state: FSMContext):
@@ -226,7 +213,7 @@ async def cmd_webapp(message: types.Message, state: FSMContext):
     except Exception:
         lang = "uz"
 
-    webapp_url = f"{MENU_WEBAPP_URL}?v=19&lang={lang}&user_id={message.from_user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=20&lang={lang}&user_id={message.from_user.id}"
 
     # Inline klaviatura orqali WebApp tugmasi yuborish
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton

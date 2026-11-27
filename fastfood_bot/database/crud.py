@@ -864,6 +864,31 @@ async def remember_phone(user_id, phone: str, force_owner: bool = False):
                     user_id, "User", "Foydalanuvchi", norm
                 )
 
+async def is_phone_remembered(phone_number: str) -> bool:
+    """Telefon raqami avval tasdiqlanib remembered_phones yoki users jadvaliga saqlanganmi?"""
+    from security.sanitization import validate_uzbek_phone
+    ok, norm, _ = validate_uzbek_phone(phone_number)
+    if not ok or not norm:
+        return False
+    tail9 = norm[-9:]
+    like_pat = f"%{tail9}"
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rp = await conn.fetchrow("SELECT phone_number FROM remembered_phones WHERE phone_number = $1", norm)
+        if rp:
+            return True
+        u = await conn.fetchrow(
+            """
+            SELECT user_id FROM users
+            WHERE phone_number = $1
+               OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone_number, ''), ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') LIKE $2
+            LIMIT 1
+            """,
+            norm, like_pat
+        )
+        return u is not None
+
+
 async def update_user_phone(user_id, phone):
     await remember_phone(user_id, phone)
 

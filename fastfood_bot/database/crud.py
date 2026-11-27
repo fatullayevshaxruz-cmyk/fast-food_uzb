@@ -771,7 +771,47 @@ async def update_user_name(user_id, name):
     async with pool.acquire() as conn:
         await conn.execute("UPDATE users SET full_name = $1 WHERE user_id = $2", name, user_id)
 
-async def remember_phone(user_id, phone: str):
+async def find_telegram_owner_by_phone(phone_number: str):
+    """
+    Telefon raqamiga biriktirilgan haqiqiy Telegram akkaunt user_id sini topadi.
+    Topilmasa None qaytaradi.
+    """
+    from security.sanitization import validate_uzbek_phone
+    ok, norm, _ = validate_uzbek_phone(phone_number)
+    if not ok or not norm:
+        return None
+    tail9 = norm[-9:]
+    like_pat = f"%{tail9}"
+    synthetic_uid = int("998" + tail9)
+
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT user_id FROM users
+            WHERE phone_number = $1
+               OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone_number, ''), ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') LIKE $2
+            ORDER BY created_at ASC
+            """,
+            norm, like_pat
+        )
+        for row in rows:
+            uid = int(row["user_id"] or 0)
+            if uid and uid != synthetic_uid:
+                return uid
+
+        rp = await conn.fetchrow(
+            "SELECT last_user_id FROM remembered_phones WHERE phone_number = $1",
+            norm
+        )
+        if rp and rp["last_user_id"]:
+            uid = int(rp["last_user_id"])
+            if uid and uid != synthetic_uid:
+                return uid
+    return None
+
+
+async def remember_phone(user_id, phone: str, force_owner: bool = False):
     """Har bir tasdiqlangan raqamni remembered_phones va users jadvalida saqlab qoladi."""
     from security.sanitization import sanitize_phone
     norm = sanitize_phone(phone)
@@ -780,21 +820,34 @@ async def remember_phone(user_id, phone: str):
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         try:
-            await conn.execute(
-                """
-                INSERT INTO remembered_phones (phone_number, last_user_id)
-                VALUES ($1, $2)
-                ON CONFLICT (phone_number) DO UPDATE
-                SET last_user_id = EXCLUDED.last_user_id, updated_at = CURRENT_TIMESTAMP
-                """,
-                norm, user_id
-            )
+            if force_owner:
+                await conn.execute(
+                    """
+                    INSERT INTO remembered_phones (phone_number, last_user_id)
+                    VALUES ($1, $2)
+                    ON CONFLICT (phone_number) DO UPDATE
+                    SET last_user_id = EXCLUDED.last_user_id, updated_at = CURRENT_TIMESTAMP
+                    """,
+                    norm, user_id
+                )
+            else:
+                await conn.execute(
+                    """
+                    INSERT INTO remembered_phones (phone_number, last_user_id)
+                    VALUES ($1, $2)
+                    ON CONFLICT (phone_number) DO UPDATE
+                    SET last_user_id = COALESCE(remembered_phones.last_user_id, EXCLUDED.last_user_id),
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    norm, user_id
+                )
         except Exception:
-            existing_rp = await conn.fetchrow("SELECT phone_number FROM remembered_phones WHERE phone_number = $1", norm)
+            existing_rp = await conn.fetchrow("SELECT phone_number, last_user_id FROM remembered_phones WHERE phone_number = $1", norm)
             if existing_rp:
+                new_owner = user_id if (force_owner or not existing_rp["last_user_id"]) else existing_rp["last_user_id"]
                 await conn.execute(
                     "UPDATE remembered_phones SET last_user_id = $1, updated_at = CURRENT_TIMESTAMP WHERE phone_number = $2",
-                    user_id, norm
+                    new_owner, norm
                 )
             else:
                 await conn.execute(

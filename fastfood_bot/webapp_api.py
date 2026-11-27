@@ -12,7 +12,7 @@ from database.crud import (
     delete_promo_code, get_promo_code, check_user_promo_used, update_user_phone,
     clear_cart, add_to_cart, get_cart_items, create_order, add_order_items,
     get_user_language, use_promo_code, get_product_name,
-    check_promo_eligibility, remember_phone
+    check_promo_eligibility, remember_phone, find_telegram_owner_by_phone
 )
 from database.connection import get_db_pool
 from utils.helpers import notify_admins_new_order, resolve_human_address
@@ -390,32 +390,51 @@ async def api_auth_send_otp(request):
                 'error': "❌ Raqam noto'g'ri! Faqat mavjud O'zbekiston raqami (+998...) qabul qilinadi."
             }, status=400))
 
-        key = f"{user_id}:{phone}" if user_id else phone
-        code = otp_store.generate(key=key, phone=phone, method=method)
+        # Tasdiqlash kodi FAQAT kiritilgan raqam egasining o'z Telegram akkauntiga yuboriladi!
+        owner_uid = await find_telegram_owner_by_phone(norm_phone)
+        if not owner_uid:
+            return add_cors_headers(web.json_response({
+                'error': (
+                    "⚠️ Bu telefon raqamiga biriktirilgan Telegram akkaunt topilmadi! "
+                    "Tasdiqlash kodi faqat shu raqam egasining Telegramiga yuboriladi — "
+                    "avval raqam egasi botga kirib (/start) raqamini tasdiqlashi kerak."
+                )
+            }, status=400))
 
-        sent_via_bot = False
-        if method == "telegram" and user_id:
-            bot = request.app.get('bot')
-            if bot:
-                try:
-                    await bot.send_message(
-                        chat_id=user_id,
-                        text=(
-                            f"🔐 <b>Fast-Food — Код подтверждения</b>\n\n"
-                            f"📱 Номер: <b>{phone}</b>\n"
-                            f"🔑 Ваш код: <code>{code}</code>\n\n"
-                            f"<i>Никому не сообщайте этот код.</i>"
-                        ),
-                        parse_mode="HTML"
-                    )
-                    sent_via_bot = True
-                except Exception as e:
-                    logging.warning(f"OTP Telegram send warning: {e}")
+        bot = request.app.get('bot')
+        if not bot:
+            return add_cors_headers(web.json_response({
+                'error': "❌ Telegram bot vaqtincha mavjud emas."
+            }, status=503))
+
+        key = f"phone:{norm_phone}"
+        code = otp_store.generate(key=key, phone=norm_phone, method="telegram")
+
+        try:
+            await bot.send_message(
+                chat_id=owner_uid,
+                text=(
+                    f"🔐 <b>Fast-Food — Akkaunt tasdiqlash kodi</b>\n\n"
+                    f"📱 Raqam: <b>{norm_phone}</b>\n"
+                    f"🔑 Tasdiqlash kodi: <code>{code}</code>\n\n"
+                    f"<i>Bu kod faqat shu raqam egasiga yuborildi. Uni begonalarga bermang!</i>"
+                ),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logging.warning(f"OTP Telegram send warning (owner_uid={owner_uid}): {e}")
+            return add_cors_headers(web.json_response({
+                'error': (
+                    "❌ Tasdiqlash kodini raqam egasining Telegramiga yuborib bo'lmadi. "
+                    "Raqam egasi botda /start bosgan bo'lishi kerak."
+                )
+            }, status=400))
 
         return add_cors_headers(web.json_response({
             'success': True,
-            'method': method,
-            'sent_via_bot': sent_via_bot,
+            'method': 'telegram',
+            'sent_via_bot': True,
+            'is_own_account': bool(user_id and int(owner_uid) == int(user_id)),
         }))
     except Exception as e:
         logging.error(f'/api/auth/send-otp error: {e}')
@@ -440,14 +459,16 @@ async def api_auth_verify_otp(request):
                 'error': "❌ Raqam noto'g'ri! Faqat mavjud O'zbekiston raqami (+998...) qabul qilinadi."
             }, status=400))
 
-        key = f"{user_id}:{phone}" if user_id else phone
-        ok, err_msg = otp_store.verify(key=key, phone=phone, submitted_code=code)
+        key = f"phone:{norm_phone}"
+        ok, err_msg = otp_store.verify(key=key, phone=norm_phone, submitted_code=code)
         if not ok:
             return add_cors_headers(web.json_response({'success': False, 'error': err_msg}, status=400))
 
+        owner_uid = await find_telegram_owner_by_phone(norm_phone)
+        target_uid = user_id or owner_uid
         if norm_phone:
             try:
-                await remember_phone(user_id or None, norm_phone)
+                await remember_phone(target_uid or None, norm_phone)
             except Exception as e:
                 logging.warning(f"remember_phone warning: {e}")
 
@@ -474,6 +495,11 @@ async def api_profile_update(request):
                 return add_cors_headers(web.json_response({
                     'error': "❌ Raqam noto'g'ri! Faqat mavjud O'zbekiston raqami (+998...) qabul qilinadi."
                 }, status=400))
+            owner_uid = await find_telegram_owner_by_phone(norm_phone)
+            if owner_uid and int(owner_uid) != int(user_id):
+                return add_cors_headers(web.json_response({
+                    'error': "⚠️ Bu raqam boshqa Telegram akkauntga biriktirilgan. Tasdiqlash kodini kiriting."
+                }, status=403))
             await remember_phone(user_id, norm_phone)
         return add_cors_headers(web.json_response({'success': True}))
     except Exception as e:

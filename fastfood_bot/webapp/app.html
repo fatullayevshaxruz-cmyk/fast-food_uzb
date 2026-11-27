@@ -1330,13 +1330,6 @@
                     setPhoneDigits(local9);
                     setAuthStep('verified');
                   }
-                  if (!dbPhone && liveTgUid) {
-                    secureFetch(`${API_BASE}/api/profile/update`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ user_id: liveTgUid, phone: formatted }),
-                    }).catch(() => {});
-                  }
                 }
               }
             }
@@ -1502,21 +1495,14 @@
             alert(data.error || "❌ Raqam noto'g'ri!");
             return;
           }
-          // Mijoz raqamini tasdiqlanganidan so'ng localStorage va bazaga saqlab qo'yamiz
-          localStorage.setItem(storagePhoneKey, fullPhone);
-          localStorage.setItem('user_phone', fullPhone);
-          setUserProfile((prev) => ({ ...prev, phone: fullPhone }));
-          if (initialUid) {
-            secureFetch(`${API_BASE}/api/profile/update`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_id: initialUid, phone: fullPhone }),
-            }).catch(() => {});
-          }
           setOtpDigits(['', '', '', '', '', '']);
           setOtpTimer(57);
-          setAuthNotice('');
-          setDemoOtpHint(data.demo_code || '');
+          setAuthNotice(
+            data.is_own_account === false
+              ? "Tasdiqlash kodi shu raqam egasining Telegram akkauntiga yuborildi."
+              : ''
+          );
+          setDemoOtpHint('');
           setAuthStep('otp');
         } catch (e) {
           hapticNotify('error');

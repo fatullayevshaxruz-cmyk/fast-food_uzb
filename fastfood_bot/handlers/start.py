@@ -1,7 +1,10 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
-from database.crud import create_user, get_user, get_user_language, set_user_language, remember_phone
+from database.crud import (
+    create_user, get_user, get_user_language, set_user_language,
+    remember_phone, find_telegram_owner_by_phone
+)
 from keyboards.main_menu import get_user_main_menu, get_admin_main_menu, get_language_keyboard, MENU_WEBAPP_URL
 from security.sanitization import validate_uzbek_phone
 from utils.states import LanguageStates, RegistrationStates
@@ -169,6 +172,15 @@ async def process_registration_phone(message: types.Message, state: FSMContext):
     """Botga kirishda kiritilgan raqamni O'zbekiston formatida tekshiradi va eslab qoladi."""
     user = message.from_user
     lang = await get_user_language(user.id)
+
+    if message.contact and message.contact.user_id and message.contact.user_id != user.id:
+        await message.answer(
+            get_text("phone_belongs_to_other", lang),
+            reply_markup=_get_phone_entry_keyboard(lang),
+            parse_mode="HTML",
+        )
+        return
+
     raw_phone = message.contact.phone_number if message.contact else message.text
 
     is_valid, norm_phone, _ = validate_uzbek_phone(raw_phone)
@@ -180,8 +192,19 @@ async def process_registration_phone(message: types.Message, state: FSMContext):
         )
         return
 
+    # Qo'lda kiritilgan raqam boshqa Telegram akkauntga biriktirilgan bo'lsa rad etamiz
+    if not message.contact:
+        existing_owner = await find_telegram_owner_by_phone(norm_phone)
+        if existing_owner and existing_owner != user.id:
+            await message.answer(
+                get_text("phone_belongs_to_other", lang),
+                reply_markup=_get_phone_entry_keyboard(lang),
+                parse_mode="HTML",
+            )
+            return
+
     await create_user(user.id, user.username, user.full_name)
-    await remember_phone(user.id, norm_phone)
+    await remember_phone(user.id, norm_phone, force_owner=bool(message.contact))
     await state.finish()
 
     from aiogram.types import ReplyKeyboardRemove

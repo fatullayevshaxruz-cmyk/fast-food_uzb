@@ -281,6 +281,23 @@ TRANSLATIONS = {
         "ru": "✅ Ваш номер телефона подтверждён и сохранён: <b>{phone}</b>",
         "en": "✅ Your phone number has been verified and saved: <b>{phone}</b>",
     },
+    "phone_belongs_to_other": {
+        "uz": (
+            "⚠️ <b>Bu raqam boshqa Telegram akkauntga biriktirilgan!</b>\n"
+            "Boshqa odamning raqamini kiritish mumkin emas.\n"
+            "Iltimos, o'zingizning raqamingizni kiriting yoki <b>«📱 Telefon raqamni yuborish»</b> tugmasini bosing:"
+        ),
+        "ru": (
+            "⚠️ <b>Этот номер уже привязан к другому Telegram-аккаунту!</b>\n"
+            "Нельзя использовать чужой номер.\n"
+            "Введите свой номер или нажмите <b>«📱 Отправить номер»</b>:"
+        ),
+        "en": (
+            "⚠️ <b>This phone number is linked to another Telegram account!</b>\n"
+            "You cannot use someone else's number.\n"
+            "Please enter your own number or tap <b>«📱 Send phone number»</b>:"
+        ),
+    },
     "promo_applied": {
         "uz": "✅ Promo kod <b>{code}</b> qo'llandi!\n💰 Chegirma: <b>{pct}%</b>",
         "ru": "✅ Промокод <b>{code}</b> применён!\n💰 Скидка: <b>{pct}%</b>",

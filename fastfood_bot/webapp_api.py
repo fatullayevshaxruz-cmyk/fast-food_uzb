@@ -1,13 +1,12 @@
 import json
 import logging
 import asyncio
+import os
+import aiohttp
 from aiohttp import web
 
 _json_dumps = lambda obj: json.dumps(obj, default=str)
-from config import (
-    ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT,
-    TELEGRAM_GATEWAY_TOKEN,
-)
+from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
 from database.crud import (
     get_user, get_user_orders, get_favorites, toggle_favorite,
     search_products, get_today_stats, get_all_orders, update_order_status,
@@ -379,34 +378,32 @@ async def api_admin_categories(request):
         return add_cors_headers(web.json_response({"error": "Internal server error"}, status=500))
 
 
-async def _send_via_telegram_gateway(phone_number: str, code: str):
+async def _send_via_telegram_gateway(phone_e164: str, code: str) -> tuple[bool, str]:
     """
-    Rasmiy Telegram Gateway API orqali foydalanuvchining @VerificationCodes chatiga
-    tasdiqlash kodi yuboradi (botga /start bosmagan bo'lsa ham ishlaydi).
-    Pullik xizmat ($0.01 / yetkazilgan kod) — TELEGRAM_GATEWAY_TOKEN talab qilinadi.
+    Telegram Gateway API (@VerificationCodes) orqali telefon egasining
+    rasmiy @VerificationCodes chatiga tasdiqlash kodini yuboradi.
+    Faqat .env da TELEGRAM_GATEWAY_TOKEN sozlanganda ishlaydi ($0.01/xabar).
     """
-    if not TELEGRAM_GATEWAY_TOKEN:
-        return False, "TELEGRAM_GATEWAY_TOKEN sozlanmagan"
-
-    import aiohttp
+    gw_token = (os.getenv("TELEGRAM_GATEWAY_TOKEN") or "").strip()
+    if not gw_token:
+        return False, "not_configured"
     url = "https://gatewayapi.telegram.org/sendVerificationMessage"
     headers = {
-        "Authorization": f"Bearer {TELEGRAM_GATEWAY_TOKEN}",
+        "Authorization": f"Bearer {gw_token}",
         "Content-Type": "application/json",
     }
     payload = {
-        "phone_number": phone_number,
+        "phone_number": phone_e164,
         "code": code,
         "ttl": 300,
     }
     try:
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-            async with session.post(url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with session.post(url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=8)) as resp:
                 res_data = await resp.json(content_type=None)
                 if resp.status == 200 and res_data.get("ok"):
                     return True, ""
-                err = res_data.get("error") or f"HTTP {resp.status}"
-                return False, str(err)
+                return False, str(res_data.get("error") or f"HTTP {resp.status}")
     except Exception as e:
         return False, str(e)
 
@@ -417,6 +414,7 @@ async def api_auth_send_otp(request):
         raw_uid = int(data.get('user_id') or 0)
         user_id = verify_request_user(request, raw_uid) or raw_uid
         phone = sanitize_text(data.get('phone') or '', max_len=25)
+        method = (data.get('method') or 'telegram').strip().lower()
 
         is_valid, norm_phone, _ = validate_uzbek_phone(phone)
         if not is_valid or not norm_phone:
@@ -427,31 +425,26 @@ async def api_auth_send_otp(request):
         key = f"phone:{norm_phone}"
         code = otp_store.generate(key=key, phone=norm_phone, method="telegram")
 
-        # 1) Agar TELEGRAM_GATEWAY_TOKEN (.env) kiritilgan bo'lsa —
-        #    botga /start bosmagan bo'lsa ham to'g'ridan-to'g'ri @VerificationCodes ga yuboramiz!
-        if TELEGRAM_GATEWAY_TOKEN:
-            gw_ok, gw_err = await _send_via_telegram_gateway(norm_phone, code)
-            if not gw_ok:
-                logging.warning(f"Telegram Gateway send error ({norm_phone}): {gw_err}")
-                return add_cors_headers(web.json_response({
-                    'error': f"❌ @VerificationCodes orqali yuborib bo'lmadi: {gw_err}"
-                }, status=400))
+        # 1) Agar TELEGRAM_GATEWAY_TOKEN sozlangan bo'lsa -> to'g'ridan-to'g'ri @VerificationCodes ga yuboradi
+        gw_ok, gw_err = await _send_via_telegram_gateway(norm_phone, code)
+        if gw_ok:
             return add_cors_headers(web.json_response({
                 'success': True,
-                'method': 'verification_codes',
+                'method': 'telegram_gateway',
+                'sent_via_bot': True,
                 'sent_via_gateway': True,
                 'is_own_account': True,
             }))
+        if gw_err != "not_configured":
+            logging.warning(f"Telegram Gateway warning ({norm_phone}): {gw_err}")
 
-        # 2) Bepul rejim: faqat shu raqamga biriktirilgan egasining Telegramiga yuboriladi (boshqaga emas)
+        # 2) Hozircha Telegram Gateway token yo'q bo'lsa -> agar raqam egasi DB da bo'lsa o'sha user_id ga,
+        # aks holda hozirgi bot chatiga (user_id) yuboramiz.
         owner_uid = await find_telegram_owner_by_phone(norm_phone)
-        if not owner_uid:
+        target_uid = owner_uid or user_id
+        if not target_uid:
             return add_cors_headers(web.json_response({
-                'error': (
-                    "⚠️ Botga /start bosmagan raqamga @VerificationCodes orqali yuborish uchun "
-                    "Telegram Gateway (TELEGRAM_GATEWAY_TOKEN, pullik: $0.01/kod) kerak. "
-                    "Bepul rejimda esa avval raqam egasi botga kirib (/start) raqamini ulashi lozim."
-                )
+                'error': "❌ Kodni yuborish uchun avval botda /start bosing!"
             }, status=400))
 
         bot = request.app.get('bot')
@@ -462,29 +455,27 @@ async def api_auth_send_otp(request):
 
         try:
             await bot.send_message(
-                chat_id=owner_uid,
+                chat_id=target_uid,
                 text=(
                     f"🔐 <b>Fast-Food — Akkaunt tasdiqlash kodi</b>\n\n"
                     f"📱 Raqam: <b>{norm_phone}</b>\n"
                     f"🔑 Tasdiqlash kodi: <code>{code}</code>\n\n"
-                    f"<i>Bu kod faqat shu raqam egasiga yuborildi. Uni begonalarga bermang!</i>"
+                    f"<i>Uni begonalarga bermang!</i>"
                 ),
                 parse_mode="HTML"
             )
         except Exception as e:
-            logging.warning(f"OTP Telegram send warning (owner_uid={owner_uid}): {e}")
+            logging.warning(f"OTP Telegram send warning (target_uid={target_uid}): {e}")
             return add_cors_headers(web.json_response({
-                'error': (
-                    "❌ Tasdiqlash kodini raqam egasining Telegramiga yuborib bo'lmadi. "
-                    "Raqam egasi botda /start bosgan bo'lishi kerak."
-                )
+                'error': "❌ Tasdiqlash kodini Telegram botga yuborib bo'lmadi. Botda /start bosilganini tekshiring."
             }, status=400))
 
         return add_cors_headers(web.json_response({
             'success': True,
             'method': 'telegram',
             'sent_via_bot': True,
-            'is_own_account': bool(user_id and int(owner_uid) == int(user_id)),
+            'sent_via_gateway': False,
+            'is_own_account': bool(not owner_uid or (user_id and int(owner_uid) == int(user_id))),
         }))
     except Exception as e:
         logging.error(f'/api/auth/send-otp error: {e}')

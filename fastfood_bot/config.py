@@ -95,6 +95,9 @@ DELIVERY_FREE_KM       = float(os.getenv("DELIVERY_FREE_KM", "3.0"))     # 3 km 
 # ── Kuryer telefoni (yetkazilmoqda xabarida ko'rsatiladi) ────────────
 COURIER_PHONE = os.getenv("COURIER_PHONE", "")   # misol: "+998901234567"
 
+# ── Telegram Gateway API (@VerificationCodes rasmiy OTP xizmati, pullik: $0.01/kod) ──
+TELEGRAM_GATEWAY_TOKEN = (os.getenv("TELEGRAM_GATEWAY_TOKEN") or "").strip()
+
 # ── WebApp / Render tashqi URL (avtomatik aniqlanadi) ─────────────────
 RENDER_URL = (
     os.getenv("RENDER_EXTERNAL_URL")

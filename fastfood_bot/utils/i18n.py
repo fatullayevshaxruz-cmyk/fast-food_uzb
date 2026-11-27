@@ -237,6 +237,50 @@ TRANSLATIONS = {
         "ru": "⚠️ Вы уже использовали этот промокод. Пропустите.",
         "en": "⚠️ You've already used this promo code. Please skip.",
     },
+    "promo_used_on_phone": {
+        "uz": "⚠️ <b>Promokod bu raqamda foydalanilgan!</b>\n<code>{code}</code> promokodi <b>{phone}</b> raqamida belgilangan limit ({limit} marta) bo'yicha to'liq ishlatilgan. Boshqa kod yozing yoki o'tkazib yuboring.",
+        "ru": "⚠️ <b>Промокод уже использован на этом номере!</b>\nПромокод <code>{code}</code> на номере <b>{phone}</b> достиг лимита ({limit} раз). Введите другой код или пропустите.",
+        "en": "⚠️ <b>Promo code already used on this phone number!</b>\nPromo code <code>{code}</code> on <b>{phone}</b> has reached its limit ({limit} uses). Try another or skip.",
+    },
+    "ask_phone_entry": {
+        "uz": (
+            "📱 <b>Botdan foydalanish uchun O'zbekiston telefon raqamingizni kiriting</b>\n"
+            "Masalan: <code>+998901234567</code>\n\n"
+            "Yoki pastdagi <b>«📱 Telefon raqamni yuborish»</b> tugmasini bosing:"
+        ),
+        "ru": (
+            "📱 <b>Для входа в бот отправьте ваш номер телефона Узбекистана</b>\n"
+            "Например: <code>+998901234567</code>\n\n"
+            "Или нажмите кнопку <b>«📱 Отправить номер»</b> ниже:"
+        ),
+        "en": (
+            "📱 <b>Please enter your Uzbekistan phone number to continue</b>\n"
+            "Example: <code>+998901234567</code>\n\n"
+            "Or tap the <b>«📱 Send phone number»</b> button below:"
+        ),
+    },
+    "invalid_uz_phone": {
+        "uz": (
+            "❌ <b>Raqam noto'g'ri!</b>\n"
+            "Bu raqam O'zbekistonniki emas yoki mavjud emas.\n"
+            "Iltimos, faqat haqiqiy O'zbekiston telefon raqamini kiriting (masalan: <code>+998901234567</code>):"
+        ),
+        "ru": (
+            "❌ <b>Неверный номер!</b>\n"
+            "Этот номер не относится к Узбекистану или не существует.\n"
+            "Пожалуйста, введите действительный номер Узбекистана (например: <code>+998901234567</code>):"
+        ),
+        "en": (
+            "❌ <b>Invalid phone number!</b>\n"
+            "This number is not from Uzbekistan or does not exist.\n"
+            "Please enter a valid Uzbekistan phone number (e.g. <code>+998901234567</code>):"
+        ),
+    },
+    "phone_saved_entry": {
+        "uz": "✅ Telefon raqamingiz tasdiqlandi va eslab qolindi: <b>{phone}</b>",
+        "ru": "✅ Ваш номер телефона подтверждён и сохранён: <b>{phone}</b>",
+        "en": "✅ Your phone number has been verified and saved: <b>{phone}</b>",
+    },
     "promo_applied": {
         "uz": "✅ Promo kod <b>{code}</b> qo'llandi!\n💰 Chegirma: <b>{pct}%</b>",
         "ru": "✅ Промокод <b>{code}</b> применён!\n💰 Скидка: <b>{pct}%</b>",

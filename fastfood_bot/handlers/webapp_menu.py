@@ -146,18 +146,19 @@ async def process_webapp_cart(message: types.Message, state: FSMContext):
         else:
             delivery_label = "Yetkazib berish"
 
-        # ── 3. Promo kod tekshirish ───────────────────────────────────
+        # ── 3. Foydalanuvchi telefon raqami va Promo kod tekshirish ─────
+        user_row = await get_user(user_id)
+        phone = user_row['phone_number'] if user_row else None
+
         discount_pct = 0
         if promo_code:
             promo_code = promo_code.strip().upper()
             try:
-                already_used = await check_user_promo_used(user_id, promo_code)
-                promo = await get_promo_code(promo_code)
-                if promo and not already_used:
-                    promo_d = dict(promo)
-                    if promo_d.get("max_uses", 0) == 0 or promo_d.get("used_count", 0) < promo_d["max_uses"]:
-                        discount_pct = promo_d.get("discount_percent", 0)
-                        await use_promo_code(promo_code, user_id=user_id)
+                from database.crud import check_promo_eligibility
+                res = await check_promo_eligibility(promo_code, user_id=user_id, phone_number=phone)
+                if res["ok"]:
+                    discount_pct = res.get("discount_percent", 0)
+                    await use_promo_code(promo_code, user_id=user_id, phone_number=res.get("phone") or phone)
             except Exception as e:
                 log.warning(f"Promo kod xatosi: {e}")
 

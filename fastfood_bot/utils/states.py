@@ -4,6 +4,10 @@ class LanguageStates(StatesGroup):
     choosing_language = State()
 
 
+class RegistrationStates(StatesGroup):
+    waiting_for_phone = State()
+
+
 class OrderStates(StatesGroup):
     waiting_for_delivery_type = State()
     waiting_for_table_number = State()

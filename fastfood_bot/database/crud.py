@@ -31,6 +31,8 @@ async def init_database():
             "ALTER TABLE orders ADD COLUMN branch_id INTEGER",
             "ALTER TABLE orders ADD COLUMN branch_name VARCHAR(150)",
             "ALTER TABLE orders ADD COLUMN distance_km FLOAT",
+            "ALTER TABLE promo_code_uses ADD COLUMN phone_number VARCHAR(20)",
+            "CREATE INDEX IF NOT EXISTS idx_promo_uses_phone ON promo_code_uses(phone_number, promo_code)",
         ]:
             try:
                 await conn.execute(alter)
@@ -621,14 +623,135 @@ async def check_user_promo_used(user_id, code):
         )
         return (r or 0) > 0
 
-async def use_promo_code(code, user_id=None):
+
+async def _resolve_normalized_phone(conn, user_id=None, phone_number=None):
+    from security.sanitization import validate_uzbek_phone
+    if phone_number:
+        ok, norm, _ = validate_uzbek_phone(phone_number)
+        if ok and norm:
+            return norm
+        digits = "".join(ch for ch in str(phone_number) if ch.isdigit())
+        if len(digits) >= 9:
+            return f"+998{digits[-9:]}"
+    if user_id:
+        u_phone = await conn.fetchval("SELECT phone_number FROM users WHERE user_id = $1", user_id)
+        if u_phone:
+            ok, norm, _ = validate_uzbek_phone(u_phone)
+            if ok and norm:
+                return norm
+            digits = "".join(ch for ch in str(u_phone) if ch.isdigit())
+            if len(digits) >= 9:
+                return f"+998{digits[-9:]}"
+    return None
+
+
+async def get_phone_promo_use_count(phone_number, code, user_id=None) -> int:
+    """Berilgan telefon raqami (yoki user) bu promokodni necha marta ishlatganini qaytaradi."""
+    pool = await get_db_pool()
+    code_up = code.strip().upper()
+    async with pool.acquire() as conn:
+        norm_phone = await _resolve_normalized_phone(conn, user_id=user_id, phone_number=phone_number)
+        cnt_uses = 0
+        if norm_phone:
+            tail9 = norm_phone[-9:]
+            r = await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM promo_code_uses
+                WHERE UPPER(promo_code) = $1
+                  AND (
+                    phone_number = $2
+                    OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone_number, ''), ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') LIKE $3
+                    OR ((phone_number IS NULL OR phone_number = '') AND user_id = $4)
+                  )
+                """,
+                code_up, norm_phone, f"%{tail9}", int(user_id or 0)
+            )
+            cnt_uses = int(r or 0)
+            # Avvalgi buyurtmalar jadvalidagi yozuvlar bilan ham solishtiramiz (dublikatsiz max olamiz)
+            r_orders = await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM orders
+                WHERE UPPER(COALESCE(promo_code, '')) = $1
+                  AND COALESCE(status, 'pending') != 'cancelled'
+                  AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone_number, ''), ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') LIKE $2
+                """,
+                code_up, f"%{tail9}"
+            )
+            cnt_uses = max(cnt_uses, int(r_orders or 0))
+        elif user_id:
+            r = await conn.fetchval(
+                "SELECT COUNT(*) FROM promo_code_uses WHERE user_id = $1 AND UPPER(promo_code) = $2",
+                user_id, code_up
+            )
+            cnt_uses = int(r or 0)
+        return cnt_uses
+
+
+async def check_promo_eligibility(code: str, user_id=None, phone_number=None) -> dict:
+    """
+    Promokodni mavjudligi, umumiy limiti va raqam bo'yicha foydalanish limitini tekshiradi.
+    Agar max_uses > 0 bo'lsa va ushbu raqam max_uses marta ishlatgan bo'lsa,
+    reason='used_on_phone' qaytaradi.
+    """
+    code_up = (code or "").strip().upper()
+    if not code_up:
+        return {"ok": False, "reason": "not_found", "discount_percent": 0, "max_uses": 0, "phone_uses": 0, "phone": None}
+
+    promo = await get_promo_code(code_up)
+    if not promo:
+        return {"ok": False, "reason": "not_found", "discount_percent": 0, "max_uses": 0, "phone_uses": 0, "phone": None}
+
+    promo_d = dict(promo)
+    max_uses = int(promo_d.get("max_uses") or 0)
+    used_count = int(promo_d.get("used_count") or 0)
+    discount_percent = int(promo_d.get("discount_percent") or 0)
+
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code = $1", code.upper())
-        if user_id:
+        norm_phone = await _resolve_normalized_phone(conn, user_id=user_id, phone_number=phone_number)
+
+    phone_uses = 0
+    if max_uses > 0:
+        phone_uses = await get_phone_promo_use_count(norm_phone, code_up, user_id=user_id)
+        if phone_uses >= max_uses:
+            return {
+                "ok": False,
+                "reason": "used_on_phone",
+                "discount_percent": discount_percent,
+                "max_uses": max_uses,
+                "phone_uses": phone_uses,
+                "phone": norm_phone,
+            }
+        if used_count >= max_uses:
+            return {
+                "ok": False,
+                "reason": "expired",
+                "discount_percent": discount_percent,
+                "max_uses": max_uses,
+                "phone_uses": phone_uses,
+                "phone": norm_phone,
+            }
+
+    return {
+        "ok": True,
+        "reason": None,
+        "discount_percent": discount_percent,
+        "max_uses": max_uses,
+        "phone_uses": phone_uses,
+        "phone": norm_phone,
+    }
+
+
+async def use_promo_code(code, user_id=None, phone_number=None):
+    pool = await get_db_pool()
+    code_up = code.strip().upper()
+    async with pool.acquire() as conn:
+        norm_phone = await _resolve_normalized_phone(conn, user_id=user_id, phone_number=phone_number)
+        await conn.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code = $1", code_up)
+        if user_id or norm_phone:
             await conn.execute(
-                "INSERT INTO promo_code_uses (user_id, promo_code) VALUES ($1, $2)",
-                user_id, code.upper()
+                "INSERT INTO promo_code_uses (user_id, promo_code, phone_number) VALUES ($1, $2, $3)",
+                int(user_id or 0), code_up, norm_phone
             )
 
 async def get_all_promo_codes():
@@ -648,17 +771,48 @@ async def update_user_name(user_id, name):
     async with pool.acquire() as conn:
         await conn.execute("UPDATE users SET full_name = $1 WHERE user_id = $2", name, user_id)
 
-async def update_user_phone(user_id, phone):
+async def remember_phone(user_id, phone: str):
+    """Har bir tasdiqlangan raqamni remembered_phones va users jadvalida saqlab qoladi."""
+    from security.sanitization import sanitize_phone
+    norm = sanitize_phone(phone)
+    if not norm:
+        return
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        existing = await conn.fetchrow("SELECT user_id FROM users WHERE user_id = $1", user_id)
-        if existing:
-            await conn.execute("UPDATE users SET phone_number = $1 WHERE user_id = $2", phone, user_id)
-        else:
+        try:
             await conn.execute(
-                "INSERT INTO users (user_id, username, full_name, phone_number) VALUES ($1, $2, $3, $4)",
-                user_id, "User", "Foydalanuvchi", phone
+                """
+                INSERT INTO remembered_phones (phone_number, last_user_id)
+                VALUES ($1, $2)
+                ON CONFLICT (phone_number) DO UPDATE
+                SET last_user_id = EXCLUDED.last_user_id, updated_at = CURRENT_TIMESTAMP
+                """,
+                norm, user_id
             )
+        except Exception:
+            existing_rp = await conn.fetchrow("SELECT phone_number FROM remembered_phones WHERE phone_number = $1", norm)
+            if existing_rp:
+                await conn.execute(
+                    "UPDATE remembered_phones SET last_user_id = $1, updated_at = CURRENT_TIMESTAMP WHERE phone_number = $2",
+                    user_id, norm
+                )
+            else:
+                await conn.execute(
+                    "INSERT INTO remembered_phones (phone_number, last_user_id) VALUES ($1, $2)",
+                    norm, user_id
+                )
+        if user_id:
+            existing = await conn.fetchrow("SELECT user_id FROM users WHERE user_id = $1", user_id)
+            if existing:
+                await conn.execute("UPDATE users SET phone_number = $1 WHERE user_id = $2", norm, user_id)
+            else:
+                await conn.execute(
+                    "INSERT INTO users (user_id, username, full_name, phone_number) VALUES ($1, $2, $3, $4)",
+                    user_id, "User", "Foydalanuvchi", norm
+                )
+
+async def update_user_phone(user_id, phone):
+    await remember_phone(user_id, phone)
 
 async def update_user_address(user_id, address):
     pool = await get_db_pool()

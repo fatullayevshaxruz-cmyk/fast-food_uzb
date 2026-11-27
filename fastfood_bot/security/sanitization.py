@@ -29,10 +29,63 @@ def sanitize_text(value: Any, max_len: int = 300) -> str:
     return html.escape(cleaned[:max_len], quote=True)
 
 
+VALID_UZ_OPERATOR_CODES = frozenset({
+    "20", "33", "50", "55",
+    "61", "62", "65", "66", "67", "69",
+    "70", "71", "72", "73", "74", "75", "76", "77", "78", "79",
+    "88", "90", "91", "93", "94", "95", "97", "98", "99",
+})
+
+
+def validate_uzbek_phone(phone: Any) -> Tuple[bool, Optional[str], str]:
+    """
+    O'zbekiston telefon raqamini qat'iy tekshiradi va '+998XXXXXXXXX' formatiga keltiradi.
+    Qaytaradi: (is_valid, normalized_phone_or_None, reason)
+      reason: '' | 'empty' | 'not_uzbek' | 'not_existent'
+    """
+    if phone is None:
+        return False, None, "empty"
+    raw = str(phone).strip()
+    if not raw:
+        return False, None, "empty"
+
+    compact = re.sub(r"[\s\-().]+", "", raw)
+    if not re.fullmatch(r"\+?\d+", compact):
+        return False, None, "not_uzbek"
+
+    has_plus = compact.startswith("+")
+    digits = compact[1:] if has_plus else compact
+
+    if has_plus:
+        if not digits.startswith("998") or len(digits) != 12:
+            return False, None, "not_uzbek"
+        local_9 = digits[3:]
+    else:
+        if len(digits) == 12 and digits.startswith("998"):
+            local_9 = digits[3:]
+        elif len(digits) == 9:
+            local_9 = digits
+        else:
+            return False, None, "not_uzbek"
+
+    op_code = local_9[:2]
+    subscriber = local_9[2:]
+    if op_code not in VALID_UZ_OPERATOR_CODES:
+        return False, None, "not_existent"
+    # Barcha 7 ta raqam bir xil bo'lgan soxta raqamlar (masalan: 0000000, 1111111, 9999999)
+    if len(set(subscriber)) == 1:
+        return False, None, "not_existent"
+
+    return True, f"+998{local_9}", ""
+
+
 def sanitize_phone(phone: Any) -> str:
     """Telefon raqamni xavfsiz formatga keltiradi (+998XXXXXXXXX)."""
     if not phone:
         return ""
+    ok, norm, _ = validate_uzbek_phone(phone)
+    if ok and norm:
+        return norm
     digits = re.sub(r"[^\d+]", "", str(phone).strip())
     return digits[:20]
 

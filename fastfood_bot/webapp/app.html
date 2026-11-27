@@ -1463,32 +1463,29 @@
       };
 
       // Send OTP Code ("Выслать код")
+      const VALID_UZ_OP_CODES = new Set([
+        '20', '33', '50', '55',
+        '61', '62', '65', '66', '67', '69',
+        '70', '71', '72', '73', '74', '75', '76', '77', '78', '79',
+        '88', '90', '91', '93', '94', '95', '97', '98', '99'
+      ]);
+      const isValidUzPhoneDigits = (d9) => {
+        if (!d9 || d9.length !== 9) return false;
+        const op = d9.slice(0, 2);
+        const sub = d9.slice(2);
+        if (!VALID_UZ_OP_CODES.has(op)) return false;
+        if (new Set(sub.split('')).size === 1) return false;
+        return true;
+      };
+
       const handleSendCode = async () => {
-        if (phoneDigits.length < 9) {
+        if (!isValidUzPhoneDigits(phoneDigits)) {
           hapticNotify('error');
-          alert('Пожалуйста, введите полный номер телефона (+998 XX XXX-XX-XX)');
+          alert("❌ Raqam noto'g'ri! Iltimos, faqat mavjud O'zbekiston telefon raqamini kiriting (+998 XX XXX-XX-XX)");
           return;
         }
         hapticImpact('medium');
         const fullPhone = `+998 ${formatUzPhone(phoneDigits)}`;
-        // Mijoz raqamini kiritishi bilanoq localStorage va bazaga saqlab qo'yamiz,
-        // shunda WebAppdan chiqib qayta kirganda ham raqami o'chib ketmaydi
-        localStorage.setItem(storagePhoneKey, fullPhone);
-        localStorage.setItem('user_phone', fullPhone);
-        setUserProfile((prev) => ({ ...prev, phone: fullPhone }));
-        if (initialUid) {
-          secureFetch(`${API_BASE}/api/profile/update`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: initialUid, phone: fullPhone }),
-          }).catch(() => {});
-        }
-        setOtpDigits(['', '', '', '', '', '']);
-        setOtpTimer(57);
-        setAuthNotice('');
-        setDemoOtpHint('');
-        setAuthStep('otp');
-
         try {
           const res = await secureFetch(`${API_BASE}/api/auth/send-otp`, {
             method: 'POST',
@@ -1499,13 +1496,32 @@
               method: sendMethod,
             }),
           });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.demo_code) {
-              setDemoOtpHint(data.demo_code);
-            }
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            hapticNotify('error');
+            alert(data.error || "❌ Raqam noto'g'ri!");
+            return;
           }
-        } catch (e) {}
+          // Mijoz raqamini tasdiqlanganidan so'ng localStorage va bazaga saqlab qo'yamiz
+          localStorage.setItem(storagePhoneKey, fullPhone);
+          localStorage.setItem('user_phone', fullPhone);
+          setUserProfile((prev) => ({ ...prev, phone: fullPhone }));
+          if (initialUid) {
+            secureFetch(`${API_BASE}/api/profile/update`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: initialUid, phone: fullPhone }),
+            }).catch(() => {});
+          }
+          setOtpDigits(['', '', '', '', '', '']);
+          setOtpTimer(57);
+          setAuthNotice('');
+          setDemoOtpHint(data.demo_code || '');
+          setAuthStep('otp');
+        } catch (e) {
+          hapticNotify('error');
+          alert("❌ Tarmoq xatosi. Qaytadan urinib ko'ring.");
+        }
       };
 
       // Keypad handlers
@@ -1614,9 +1630,12 @@
         const code = promoInput.trim().toUpperCase();
         if (!code) return;
         hapticImpact('light');
+        const activePhone =
+          userProfile.phone ||
+          (phoneDigits.length === 9 ? `+998${phoneDigits}` : '');
         try {
           const res = await secureFetch(
-            `${API_BASE}/api/promo?code=${encodeURIComponent(code)}&user_id=${initialUid || 0}`
+            `${API_BASE}/api/promo?code=${encodeURIComponent(code)}&user_id=${initialUid || 0}&phone=${encodeURIComponent(activePhone)}`
           );
           if (res.ok) {
             const d = await res.json();
@@ -1626,6 +1645,10 @@
               hapticNotify('success');
               return;
             }
+            setAppliedPromo(null);
+            setPromoStatus({ ok: false, msg: d.message || 'Промокод не найден или истек' });
+            hapticNotify('error');
+            return;
           }
         } catch (e) {}
         setPromoStatus({ ok: false, msg: 'Промокод не найден или истек' });

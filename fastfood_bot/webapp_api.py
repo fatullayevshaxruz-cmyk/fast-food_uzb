@@ -11,7 +11,8 @@ from database.crud import (
     add_product, update_product_image, get_categories, get_products_by_category,
     delete_promo_code, get_promo_code, check_user_promo_used, update_user_phone,
     clear_cart, add_to_cart, get_cart_items, create_order, add_order_items,
-    get_user_language, use_promo_code, get_product_name
+    get_user_language, use_promo_code, get_product_name,
+    check_promo_eligibility, remember_phone
 )
 from database.connection import get_db_pool
 from utils.helpers import notify_admins_new_order, resolve_human_address
@@ -22,6 +23,7 @@ from security.payment_guard import sign_invoice_payload
 from security.sanitization import (
     sanitize_text,
     sanitize_phone,
+    validate_uzbek_phone,
     clamp_quantity,
     validate_coordinates,
     otp_store,
@@ -382,8 +384,11 @@ async def api_auth_send_otp(request):
         phone = sanitize_text(data.get('phone') or '', max_len=25)
         method = (data.get('method') or 'telegram').strip().lower()
 
-        if not phone or len(phone) < 9:
-            return add_cors_headers(web.json_response({'error': 'Invalid phone number'}, status=400))
+        is_valid, norm_phone, _ = validate_uzbek_phone(phone)
+        if not is_valid or not norm_phone:
+            return add_cors_headers(web.json_response({
+                'error': "❌ Raqam noto'g'ri! Faqat mavjud O'zbekiston raqami (+998...) qabul qilinadi."
+            }, status=400))
 
         key = f"{user_id}:{phone}" if user_id else phone
         code = otp_store.generate(key=key, phone=phone, method=method)
@@ -428,20 +433,27 @@ async def api_auth_verify_otp(request):
         if not phone or len(code) != 6 or not code.isdigit():
             return add_cors_headers(web.json_response({'error': 'Invalid code format'}, status=400))
 
+        is_valid, norm_phone, _ = validate_uzbek_phone(phone)
+        if not is_valid or not norm_phone:
+            return add_cors_headers(web.json_response({
+                'success': False,
+                'error': "❌ Raqam noto'g'ri! Faqat mavjud O'zbekiston raqami (+998...) qabul qilinadi."
+            }, status=400))
+
         key = f"{user_id}:{phone}" if user_id else phone
         ok, err_msg = otp_store.verify(key=key, phone=phone, submitted_code=code)
         if not ok:
             return add_cors_headers(web.json_response({'success': False, 'error': err_msg}, status=400))
 
-        if user_id and phone:
+        if norm_phone:
             try:
-                await update_user_phone(user_id, sanitize_phone(phone))
+                await remember_phone(user_id or None, norm_phone)
             except Exception as e:
-                logging.warning(f"update_user_phone warning: {e}")
+                logging.warning(f"remember_phone warning: {e}")
 
         return add_cors_headers(web.json_response({
             'success': True,
-            'phone': phone
+            'phone': norm_phone
         }))
     except Exception as e:
         logging.error(f'/api/auth/verify-otp error: {e}')
@@ -455,9 +467,14 @@ async def api_profile_update(request):
         user_id = verify_request_user(request, raw_uid)
         if not user_id:
             return add_cors_headers(web.json_response({'error': 'Unauthorized'}, status=401))
-        phone = sanitize_phone(data.get('phone', ''))
-        if phone:
-            await update_user_phone(user_id, phone)
+        raw_phone = data.get('phone', '')
+        if raw_phone:
+            is_valid, norm_phone, _ = validate_uzbek_phone(raw_phone)
+            if not is_valid or not norm_phone:
+                return add_cors_headers(web.json_response({
+                    'error': "❌ Raqam noto'g'ri! Faqat mavjud O'zbekiston raqami (+998...) qabul qilinadi."
+                }, status=400))
+            await remember_phone(user_id, norm_phone)
         return add_cors_headers(web.json_response({'success': True}))
     except Exception as e:
         logging.error(f'/api/profile/update error: {e}')
@@ -467,18 +484,26 @@ async def api_profile_update(request):
 async def api_promo_check(request):
     try:
         code = request.query.get('code', '').strip().upper()
-        user_id = int(request.query.get('user_id', 0))
+        user_id = int(request.query.get('user_id', 0) or 0)
+        phone = sanitize_text(request.query.get('phone', ''), max_len=25) or None
         if not code:
             return add_cors_headers(web.json_response({'valid': False}))
-        promo = await get_promo_code(code)
-        if not promo:
-            return add_cors_headers(web.json_response({'valid': False}))
-        promo_dict = dict(promo)
-        if promo_dict.get('max_uses', 0) > 0 and promo_dict.get('used_count', 0) >= promo_dict['max_uses']:
-            return add_cors_headers(web.json_response({'valid': False, 'reason': 'Limit'}))
+        res = await check_promo_eligibility(code, user_id=user_id or None, phone_number=phone)
+        if not res['ok']:
+            reason = res.get('reason')
+            if reason == 'used_on_phone':
+                msg = (
+                    f"⚠️ Promokod bu raqamda ({res.get('phone') or ''}) allaqachon foydalanilgan "
+                    f"(limit: {res.get('max_uses')} marta)."
+                )
+            elif reason == 'expired':
+                msg = '⚠️ Bu promokod limiti tugagan.'
+            else:
+                msg = '❌ Bunday promokod topilmadi.'
+            return add_cors_headers(web.json_response({'valid': False, 'reason': reason, 'message': msg}))
         return add_cors_headers(web.json_response({
             'valid': True,
-            'discount_percent': promo_dict.get('discount_percent', 0),
+            'discount_percent': res.get('discount_percent', 0),
             'code': code
         }))
     except Exception as e:
@@ -496,7 +521,15 @@ async def api_order_create(request):
     try:
         data = await request.json()
         raw_uid = int(data.get('user_id', 0) or 0)
-        payload_phone = sanitize_phone(data.get("phone") or "")
+        raw_phone_arg = data.get("phone") or ""
+        payload_phone = ""
+        if raw_phone_arg:
+            is_valid_ph, norm_ph, _ = validate_uzbek_phone(raw_phone_arg)
+            if not is_valid_ph or not norm_ph:
+                return add_cors_headers(web.json_response({
+                    'error': "❌ Raqam noto'g'ri! Faqat mavjud O'zbekiston raqami (+998...) qabul qilinadi."
+                }, status=400))
+            payload_phone = norm_ph
         user_id = verify_request_user(request, raw_uid)
 
         if not user_id and payload_phone:
@@ -610,20 +643,33 @@ async def api_order_create(request):
             return add_cors_headers(web.json_response({'error': 'Cart is empty'}, status=400))
         items = [dict(i) for i in raw_items]
 
-        # ── 3. Promo kod tekshirish (1 foydalanuvchi = 1 marta) ──────
+        # ── 3. Foydalanuvchi telefon raqami va Promo kod tekshirish ───
+        user_row = await get_user(user_id)
+        phone = payload_phone or (user_row['phone_number'] if user_row and user_row['phone_number'] else None)
+        if payload_phone:
+            try:
+                await remember_phone(user_id, payload_phone)
+            except Exception:
+                pass
+
         discount_pct = 0
         if promo_code:
             promo_code = promo_code.strip().upper()
-            try:
-                already_used = await check_user_promo_used(user_id, promo_code)
-                promo = await get_promo_code(promo_code)
-                if promo and not already_used:
-                    promo_d = dict(promo)
-                    if promo_d.get("max_uses", 0) == 0 or promo_d.get("used_count", 0) < promo_d["max_uses"]:
-                        discount_pct = promo_d.get("discount_percent", 0)
-                        await use_promo_code(promo_code, user_id=user_id)
-            except Exception as e:
-                logging.warning(f"Promo kod xatosi: {e}")
+            res = await check_promo_eligibility(promo_code, user_id=user_id, phone_number=phone)
+            if not res["ok"]:
+                reason = res.get("reason")
+                if reason == "used_on_phone":
+                    err_txt = (
+                        f"⚠️ Promokod bu raqamda ({res.get('phone') or phone or ''}) allaqachon foydalanilgan "
+                        f"(limit: {res.get('max_uses')} marta)."
+                    )
+                elif reason == "expired":
+                    err_txt = "⚠️ Bu promokod limiti tugagan."
+                else:
+                    err_txt = "❌ Bunday promokod topilmadi."
+                return add_cors_headers(web.json_response({'error': err_txt}, status=400))
+            discount_pct = res.get("discount_percent", 0)
+            await use_promo_code(promo_code, user_id=user_id, phone_number=res.get("phone") or phone)
 
         # ── 4. Narxlarni BAZADAGI haqiqiy narxlardan hisoblash ────────
         items_total   = sum(int(i['price']) * int(i['quantity']) for i in items)
@@ -660,12 +706,10 @@ async def api_order_create(request):
 
         total_amount = after_discount + delivery_fee_val
 
-        # ── 5. Foydalanuvchi telefon raqami ──────────────────────────
-        user_row = await get_user(user_id)
-        phone = (user_row['phone_number'] if user_row and user_row['phone_number'] else None) or payload_phone or None
-        if payload_phone and (not user_row or not user_row['phone_number']):
+        # ── 5. Telefon raqam eslab qolish ─────────────────────────────
+        if phone and (not user_row or user_row['phone_number'] != phone):
             try:
-                await update_user_phone(user_id, payload_phone)
+                await remember_phone(user_id, phone)
             except Exception:
                 pass
 

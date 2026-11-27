@@ -1,9 +1,10 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
-from database.crud import create_user, get_user_language, set_user_language
+from database.crud import create_user, get_user, get_user_language, set_user_language, remember_phone
 from keyboards.main_menu import get_user_main_menu, get_admin_main_menu, get_language_keyboard, MENU_WEBAPP_URL
-from utils.states import LanguageStates
+from security.sanitization import validate_uzbek_phone
+from utils.states import LanguageStates, RegistrationStates
 from utils.i18n import get_text
 from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
 
@@ -73,39 +74,11 @@ async def cmd_start(message: types.Message, state: FSMContext):
     )
 
 
-async def process_language_choice(message: types.Message, state: FSMContext):
-    """Til tanlandi — DBga saqlash va asosiy menyuni ko'rsatish."""
-    current_state = await state.get_state()
-    lang = _extract_lang(
-        message.text,
-        allow_short=(current_state == LanguageStates.choosing_language.state),
-    )
+async def _send_welcome_menu(message: types.Message, user: types.User, lang: str):
+    """Tanlangan til bo'yicha asosiy menyu va xush kelibsiz xabarini yuboradi."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-    if not lang:
-        # Noto'g'ri tugma — qayta so'rash
-        await message.answer(
-            "❓ Iltimos, quyidagi tugmalardan birini bosing:\n"
-            "Please choose one of the buttons below:",
-            reply_markup=get_language_keyboard()
-        )
-        return
-
-    user = message.from_user
-
-    # Foydalanuvchi mavjudligini kafolatlash va tilni DBga saqlash
-    await create_user(user.id, user.username, user.full_name)
-    await set_user_language(user.id, lang)
-    if current_state is not None:
-        await state.finish()
-
-    # Tanlangan til haqida tasdiqlash va ReplyKeyboard ni yashirish
-    from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    await message.answer(get_text("language_selected", lang), reply_markup=ReplyKeyboardRemove())
-
-    # WebApp URL
     webapp_url = f"{MENU_WEBAPP_URL}?v=19&lang={lang}&user_id={user.id}"
-
-    # Asosiy menyu uchun inline tugmalar
     web_btn_labels = {
         "uz": "🌐 Menu ilova",
         "ru": "🌐 Меню приложение",
@@ -141,6 +114,83 @@ async def process_language_choice(message: types.Message, state: FSMContext):
         reply_markup=inline_kb,
         parse_mode="HTML"
     )
+
+
+def _get_phone_entry_keyboard(lang: str) -> ReplyKeyboardMarkup:
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(KeyboardButton(get_text("btn_send_phone", lang), request_contact=True))
+    return markup
+
+
+async def process_language_choice(message: types.Message, state: FSMContext):
+    """Til tanlandi — DBga saqlash va telefon raqamni tekshirish."""
+    current_state = await state.get_state()
+    lang = _extract_lang(
+        message.text,
+        allow_short=(current_state == LanguageStates.choosing_language.state),
+    )
+
+    if not lang:
+        # Noto'g'ri tugma — qayta so'rash
+        await message.answer(
+            "❓ Iltimos, quyidagi tugmalardan birini bosing:\n"
+            "Please choose one of the buttons below:",
+            reply_markup=get_language_keyboard()
+        )
+        return
+
+    user = message.from_user
+
+    # Foydalanuvchi mavjudligini kafolatlash va tilni DBga saqlash
+    await create_user(user.id, user.username, user.full_name)
+    await set_user_language(user.id, lang)
+    if current_state is not None:
+        await state.finish()
+
+    from aiogram.types import ReplyKeyboardRemove
+    user_row = await get_user(user.id)
+    saved_phone = user_row["phone_number"] if user_row else None
+    has_valid_phone, _, _ = validate_uzbek_phone(saved_phone)
+
+    if has_valid_phone:
+        await message.answer(get_text("language_selected", lang), reply_markup=ReplyKeyboardRemove())
+        await _send_welcome_menu(message, user, lang)
+    else:
+        await message.answer(get_text("language_selected", lang))
+        await RegistrationStates.waiting_for_phone.set()
+        await message.answer(
+            get_text("ask_phone_entry", lang),
+            reply_markup=_get_phone_entry_keyboard(lang),
+            parse_mode="HTML",
+        )
+
+
+async def process_registration_phone(message: types.Message, state: FSMContext):
+    """Botga kirishda kiritilgan raqamni O'zbekiston formatida tekshiradi va eslab qoladi."""
+    user = message.from_user
+    lang = await get_user_language(user.id)
+    raw_phone = message.contact.phone_number if message.contact else message.text
+
+    is_valid, norm_phone, _ = validate_uzbek_phone(raw_phone)
+    if not is_valid or not norm_phone:
+        await message.answer(
+            get_text("invalid_uz_phone", lang),
+            reply_markup=_get_phone_entry_keyboard(lang),
+            parse_mode="HTML",
+        )
+        return
+
+    await create_user(user.id, user.username, user.full_name)
+    await remember_phone(user.id, norm_phone)
+    await state.finish()
+
+    from aiogram.types import ReplyKeyboardRemove
+    await message.answer(
+        get_text("phone_saved_entry", lang, phone=norm_phone),
+        reply_markup=ReplyKeyboardRemove(),
+        parse_mode="HTML",
+    )
+    await _send_welcome_menu(message, user, lang)
 
 
 async def cmd_webapp(message: types.Message, state: FSMContext):
@@ -242,6 +292,11 @@ def register_start_handlers(dp: Dispatcher):
     dp.register_message_handler(
         process_language_choice,
         state=LanguageStates.choosing_language,
+    )
+    dp.register_message_handler(
+        process_registration_phone,
+        content_types=[types.ContentType.CONTACT, types.ContentType.TEXT],
+        state=RegistrationStates.waiting_for_phone,
     )
     dp.register_callback_query_handler(process_show_regular_menu_callback, text="show_regular_menu", state="*")
     dp.register_message_handler(cmd_help, commands=['help'])

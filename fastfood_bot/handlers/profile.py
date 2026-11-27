@@ -227,11 +227,15 @@ async def edit_phone_start(call: types.CallbackQuery):
 
 
 async def edit_phone_done(message: types.Message, state: FSMContext):
+    from security.sanitization import validate_uzbek_phone
     lang = await get_user_language(message.from_user.id)
-    phone = message.text.strip()
-    await update_user_phone(message.from_user.id, phone)
+    is_valid, norm_phone, _ = validate_uzbek_phone(message.text)
+    if not is_valid or not norm_phone:
+        await message.answer(get_text("invalid_uz_phone", lang), parse_mode="HTML")
+        return
+    await update_user_phone(message.from_user.id, norm_phone)
     await state.finish()
-    await message.answer(get_text("phone_updated", lang, phone=phone), parse_mode="HTML")
+    await message.answer(get_text("phone_updated", lang, phone=norm_phone), parse_mode="HTML")
 
 
 async def edit_address_start(call: types.CallbackQuery):

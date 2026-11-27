@@ -114,7 +114,14 @@ ALL_TABLES = [
         id SERIAL PRIMARY KEY,
         user_id BIGINT NOT NULL,
         promo_code VARCHAR(50) NOT NULL,
+        phone_number VARCHAR(20),
         used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );""",
+    """CREATE TABLE IF NOT EXISTS remembered_phones (
+        phone_number VARCHAR(20) PRIMARY KEY,
+        last_user_id BIGINT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );""",
     "CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);",
     "CREATE INDEX IF NOT EXISTS idx_cart_user ON cart_items(user_id);",

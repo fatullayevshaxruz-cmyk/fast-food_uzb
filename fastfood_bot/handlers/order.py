@@ -356,9 +356,17 @@ async def process_webapp_location(message: types.Message, state: FSMContext):
 
 async def process_phone(message: types.Message, state: FSMContext):
     try:
+        from database.crud import remember_phone
+        from security.sanitization import validate_uzbek_phone
+
         lang = await get_user_language(message.from_user.id)
-        phone = message.contact.phone_number if message.contact else message.text
-        await state.update_data(phone=phone)
+        raw_phone = message.contact.phone_number if message.contact else message.text
+        is_valid, norm_phone, _ = validate_uzbek_phone(raw_phone)
+        if not is_valid or not norm_phone:
+            await message.answer(get_text("invalid_uz_phone", lang), parse_mode="HTML")
+            return
+        await remember_phone(message.from_user.id, norm_phone)
+        await state.update_data(phone=norm_phone)
         await _ask_for_note(message, state, lang)
     except Exception as e:
         await message.answer(f"Xatolik yuz berdi: {e}")
@@ -399,7 +407,7 @@ async def _ask_for_promo(message: types.Message, state: FSMContext, lang: str = 
 
 
 async def process_promo(message: types.Message, state: FSMContext):
-    from database.crud import get_promo_code, use_promo_code
+    from database.crud import check_promo_eligibility, use_promo_code
     from handlers.payment import ask_payment_method
 
     lang = await get_user_language(message.from_user.id)
@@ -411,19 +419,32 @@ async def process_promo(message: types.Message, state: FSMContext):
         return
 
     code = message.text.strip().upper()
-    promo = await get_promo_code(code)
-    if not promo:
-        await message.answer(get_text("promo_not_found", lang))
-        return
-    promo_d = dict(promo)
-    if promo_d.get('max_uses', 0) > 0 and promo_d.get('used_count', 0) >= promo_d['max_uses']:
-        await message.answer(get_text("promo_expired", lang))
+    st_data = await state.get_data()
+    phone = st_data.get("phone")
+    res = await check_promo_eligibility(code, user_id=message.from_user.id, phone_number=phone)
+    if not res["ok"]:
+        reason = res.get("reason")
+        if reason == "used_on_phone":
+            await message.answer(
+                get_text(
+                    "promo_used_on_phone",
+                    lang,
+                    code=code,
+                    phone=res.get("phone") or phone or "—",
+                    limit=res.get("max_uses") or 1,
+                ),
+                parse_mode="HTML",
+            )
+        elif reason == "expired":
+            await message.answer(get_text("promo_expired", lang))
+        else:
+            await message.answer(get_text("promo_not_found", lang))
         return
 
-    await use_promo_code(code, user_id=message.from_user.id)
-    await state.update_data(promo_code=code, discount_percent=promo_d['discount_percent'])
+    await use_promo_code(code, user_id=message.from_user.id, phone_number=res.get("phone") or phone)
+    await state.update_data(promo_code=code, discount_percent=res['discount_percent'])
     await message.answer(
-        get_text("promo_applied", lang, code=code, pct=promo_d['discount_percent']),
+        get_text("promo_applied", lang, code=code, pct=res['discount_percent']),
         parse_mode="HTML"
     )
     await ask_payment_method(message, state)

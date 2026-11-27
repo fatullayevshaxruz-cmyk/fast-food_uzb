@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import os
+import secrets
 import aiohttp
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from database.connection import init_db_pool, close_db_pool
 from database.crud import init_database
@@ -200,12 +201,41 @@ def main():
             return web.json_response({"error": "Internal server error"}, status=500,
                                      headers={"Access-Control-Allow-Origin": "*"})
 
+    _WEBHOOK_PROBE_ID = secrets.token_hex(12)
+    _WEBHOOK_SECRET = secrets.token_hex(24)
+
+    async def tg_probe_handler(request):
+        return web.Response(text=_WEBHOOK_PROBE_ID)
+
+    async def _process_webhook_update(update: types.Update):
+        try:
+            Dispatcher.set_current(dp)
+            Bot.set_current(bot)
+            await dp.process_update(update)
+        except Exception as e:
+            logging.error(f"Webhook update xatosi: {e}", exc_info=True)
+
+    async def tg_webhook_handler(request):
+        if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != _WEBHOOK_SECRET:
+            return web.Response(status=403, text="Forbidden")
+        try:
+            data = await request.json()
+        except Exception:
+            return web.Response(status=400, text="Bad Request")
+        Dispatcher.set_current(dp)
+        Bot.set_current(bot)
+        update = types.Update.to_object(data)
+        asyncio.create_task(_process_webhook_update(update))
+        return web.Response(text="ok")
+
     async def start_web_server():
         app = web.Application(middlewares=[security_and_rate_limit_middleware])
         app['bot'] = bot
         app['dp'] = dp
         app.router.add_get('/', health_check)
         app.router.add_get('/health', health_check)
+        app.router.add_get('/_tg_probe', tg_probe_handler)
+        app.router.add_post('/tg-webhook', tg_webhook_handler)
         async def terms_handler(request):
             return web.FileResponse(os.path.join(webapp_dir, 'terms.html'))
         app.router.add_get('/terms', terms_handler)
@@ -237,14 +267,55 @@ def main():
         await site.start()
         logging.info(f"✅ Web server started on port {port}")
 
+    async def _can_use_webhook() -> bool:
+        if not RENDER_URL or not RENDER_URL.startswith("https://"):
+            return False
+        probe_url = f"{RENDER_URL.rstrip('/')}/_tg_probe"
+        try:
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+                async with session.get(
+                    probe_url,
+                    headers={"ngrok-skip-browser-warning": "true"},
+                    timeout=aiohttp.ClientTimeout(total=6),
+                ) as resp:
+                    if resp.status == 200:
+                        txt = (await resp.text()).strip()
+                        return txt == _WEBHOOK_PROBE_ID
+        except Exception as e:
+            logging.info(f"ℹ️ Webhook self-probe muvaffaqiyatsiz ({e}); polling ishlatiladi.")
+        return False
+
     async def run_resilient_bot():
         """
-        Render redeploy vaqtida eski va yangi konteyner bir necha soniya ustma-ust ishlaganda
-        Telegram Conflict xatosi sababli polling to'xtab qolmasligi uchun o'z-o'zini tiklovchi (self-healing) sikl.
+        1) Agar RENDER_URL (ngrok yoki Render) shu serverning o'ziga yetib kelsa,
+           Telegram Webhook rejimida ishlaydi (boshqa getUpdates konfliktlarisiz!).
+        2) Aks holda self-healing polling siklida ishlaydi.
         """
         await on_startup(dp)
         await start_web_server()
         asyncio.create_task(keep_alive())
+
+        if await _can_use_webhook():
+            webhook_url = f"{RENDER_URL.rstrip('/')}/tg-webhook"
+            try:
+                await bot.set_webhook(
+                    webhook_url,
+                    secret_token=_WEBHOOK_SECRET,
+                    drop_pending_updates=False,
+                )
+                logging.info(f"✅ Telegram Webhook faollashtirildi: {webhook_url}")
+                try:
+                    while True:
+                        await asyncio.sleep(3600)
+                finally:
+                    if not (os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_URL")):
+                        try:
+                            await bot.delete_webhook(drop_pending_updates=False)
+                        except Exception:
+                            pass
+                return
+            except Exception as e:
+                logging.warning(f"⚠️ Webhook sozlashda xato ({e}), polling ga o'tilmoqda...")
 
         while True:
             try:

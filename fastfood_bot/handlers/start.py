@@ -15,6 +15,45 @@ LANG_BUTTON_MAP = {
     "🇬🇧 English": "en",
 }
 
+_NORMALIZED_LANG_MAP = {
+    "🇺🇿 o'zbek": "uz",
+    "o'zbek": "uz",
+    "uzbek": "uz",
+    "🇷🇺 русский": "ru",
+    "русский": "ru",
+    "russian": "ru",
+    "🇬🇧 english": "en",
+    "english": "en",
+}
+
+_FLEX_SHORT_LANG_MAP = {
+    "uz": "uz",
+    "ru": "ru",
+    "en": "en",
+}
+
+
+def _extract_lang(text: str, allow_short: bool = False):
+    """Tugma matnidan til kodini ('uz' | 'ru' | 'en') ajratib oladi."""
+    if not text:
+        return None
+    cleaned = (
+        text.replace("\u200b", "")
+        .replace("\ufeff", "")
+        .replace("’", "'")
+        .replace("‘", "'")
+        .replace("`", "'")
+        .strip()
+    )
+    if cleaned in LANG_BUTTON_MAP:
+        return LANG_BUTTON_MAP[cleaned]
+    lowered = cleaned.lower()
+    if lowered in _NORMALIZED_LANG_MAP:
+        return _NORMALIZED_LANG_MAP[lowered]
+    if allow_short and lowered in _FLEX_SHORT_LANG_MAP:
+        return _FLEX_SHORT_LANG_MAP[lowered]
+    return None
+
 
 def _is_admin(user_id):
     return str(user_id) in [a.strip() for a in ADMIN_ID.split(",") if a.strip()]
@@ -36,8 +75,11 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
 async def process_language_choice(message: types.Message, state: FSMContext):
     """Til tanlandi — DBga saqlash va asosiy menyuni ko'rsatish."""
-    text = message.text.strip()
-    lang = LANG_BUTTON_MAP.get(text)
+    current_state = await state.get_state()
+    lang = _extract_lang(
+        message.text,
+        allow_short=(current_state == LanguageStates.choosing_language.state),
+    )
 
     if not lang:
         # Noto'g'ri tugma — qayta so'rash
@@ -50,9 +92,11 @@ async def process_language_choice(message: types.Message, state: FSMContext):
 
     user = message.from_user
 
-    # Tilni DBga saqlash
+    # Foydalanuvchi mavjudligini kafolatlash va tilni DBga saqlash
+    await create_user(user.id, user.username, user.full_name)
     await set_user_language(user.id, lang)
-    await state.finish()
+    if current_state is not None:
+        await state.finish()
 
     # Tanlangan til haqida tasdiqlash va ReplyKeyboard ni yashirish
     from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
@@ -62,14 +106,27 @@ async def process_language_choice(message: types.Message, state: FSMContext):
     webapp_url = f"{MENU_WEBAPP_URL}?v=19&lang={lang}&user_id={user.id}"
 
     # Asosiy menyu uchun inline tugmalar
+    web_btn_labels = {
+        "uz": "🌐 Menu ilova",
+        "ru": "🌐 Меню приложение",
+        "en": "🌐 Menu App",
+    }
+    menu_btn_labels = {
+        "uz": "📱 Menu",
+        "ru": "📱 Меню",
+        "en": "📱 Menu",
+    }
     inline_kb = InlineKeyboardMarkup(row_width=1)
+    if webapp_url.startswith("https://"):
+        inline_kb.add(
+            InlineKeyboardButton(
+                text=web_btn_labels.get(lang, web_btn_labels["uz"]),
+                web_app=WebAppInfo(url=webapp_url)
+            )
+        )
     inline_kb.add(
         InlineKeyboardButton(
-            text="🌐 Menu ilova",
-            web_app=WebAppInfo(url=webapp_url)
-        ),
-        InlineKeyboardButton(
-            text="📱 Menu",
+            text=menu_btn_labels.get(lang, menu_btn_labels["uz"]),
             callback_data="show_regular_menu"
         )
     )
@@ -177,8 +234,15 @@ async def process_show_regular_menu_callback(call: types.CallbackQuery):
 
 def register_start_handlers(dp: Dispatcher):
     dp.register_message_handler(cmd_start, commands=['start'], state="*")
-    dp.register_message_handler(process_language_choice,
-                                state=LanguageStates.choosing_language)
+    dp.register_message_handler(
+        process_language_choice,
+        lambda m: bool(_extract_lang(m.text)),
+        state="*",
+    )
+    dp.register_message_handler(
+        process_language_choice,
+        state=LanguageStates.choosing_language,
+    )
     dp.register_callback_query_handler(process_show_regular_menu_callback, text="show_regular_menu", state="*")
     dp.register_message_handler(cmd_help, commands=['help'])
     dp.register_message_handler(cmd_cancel, commands=['cancel'], state="*")

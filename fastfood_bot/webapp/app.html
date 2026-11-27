@@ -2104,7 +2104,7 @@
                         </svg>
                       </button>
 
-                      {typeof window.Telegram?.WebApp?.requestContact === 'function' && (
+                      {tg && (
                         <button
                           type="button"
                           onClick={handleRequestTelegramContact}

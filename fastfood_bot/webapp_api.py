@@ -409,6 +409,41 @@ async def _send_via_telegram_gateway(phone_e164: str, code: str) -> tuple[bool, 
         return False, str(e)
 
 
+async def _send_via_eskiz_sms(phone_e164: str, code: str) -> tuple[bool, str]:
+    """Eskiz.uz SMS API orqali haqiqiy SMS yuboradi (agar .env da sozlangan bo'lsa)."""
+    email = (os.getenv("ESKIZ_EMAIL") or "").strip()
+    password = (os.getenv("ESKIZ_PASSWORD") or "").strip()
+    if not email or not password:
+        return False, "not_configured"
+    mobile_phone = "".join(ch for ch in phone_e164 if ch.isdigit())
+    try:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+            async with session.post(
+                "https://notify.eskiz.uz/api/auth/login",
+                data={"email": email, "password": password},
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as auth_resp:
+                auth_data = await auth_resp.json(content_type=None)
+                token = (auth_data.get("data") or {}).get("token")
+                if not token:
+                    return False, "Eskiz auth failed"
+            async with session.post(
+                "https://notify.eskiz.uz/api/message/sms/send",
+                headers={"Authorization": f"Bearer {token}"},
+                data={
+                    "mobile_phone": mobile_phone,
+                    "message": f"Fast-Food tasdiqlash kodi: {code}",
+                    "from": os.getenv("ESKIZ_FROM", "4546"),
+                },
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as sms_resp:
+                if sms_resp.status in (200, 201):
+                    return True, ""
+                return False, f"HTTP {sms_resp.status}"
+    except Exception as e:
+        return False, str(e)
+
+
 async def api_auth_send_otp(request):
     try:
         data = await request.json()
@@ -424,7 +459,22 @@ async def api_auth_send_otp(request):
             }, status=400))
 
         key = f"phone:{norm_phone}"
-        code = otp_store.generate(key=key, phone=norm_phone, method="telegram")
+        code = otp_store.generate(key=key, phone=norm_phone, method=method)
+
+        # 0) Agar "sms" tanlangan va Eskiz.uz sozlangan bo'lsa -> haqiqiy SMS yuboradi
+        if method == "sms":
+            sms_ok, sms_err = await _send_via_eskiz_sms(norm_phone, code)
+            if sms_ok:
+                return add_cors_headers(web.json_response({
+                    'success': True,
+                    'method': 'sms',
+                    'sent_via_bot': False,
+                    'sent_via_gateway': False,
+                    'sent_via_sms': True,
+                    'is_own_account': True,
+                }))
+            if sms_err != "not_configured":
+                logging.warning(f"Eskiz SMS warning ({norm_phone}): {sms_err}")
 
         # 1) Agar TELEGRAM_GATEWAY_TOKEN sozlangan bo'lsa -> to'g'ridan-to'g'ri @VerificationCodes ga yuboradi
         gw_ok, gw_err = await _send_via_telegram_gateway(norm_phone, code)
@@ -439,17 +489,15 @@ async def api_auth_send_otp(request):
         if gw_err != "not_configured":
             logging.warning(f"Telegram Gateway warning ({norm_phone}): {gw_err}")
 
-        # 2) Hozircha Telegram Gateway token yo'q bo'lsa -> kod FAQAT raqamning o'z egasiga
+        # 2) Hozircha Gateway/Eskiz token yo'q bo'lsa -> kod FAQAT raqamning o'z egasiga
         #    (owner_uid) yuboriladi, hech qachon begona so'rovchiga yuborilmaydi!
         owner_uid = await find_telegram_owner_by_phone(norm_phone)
         if not owner_uid:
             return add_cors_headers(web.json_response({
                 'error': (
-                    "⚠️ Kiritilgan raqam sizning hozirgi Telegram akkauntingizga biriktirilmagan "
-                    "(va bazada egasi topilmadi). Begona raqamning o'z Telegramiga (@VerificationCodes) "
-                    "kod yuborish uchun TELEGRAM_GATEWAY_TOKEN ulanishi shart — kod raqamni kiritgan "
-                    "odamning Telegramiga yuborilmaydi. Agar bu o'zingizning Telegram raqamingiz bo'lsa, "
-                    "pastdagi Telegram orqali tasdiqlash tugmasini bosing."
+                    "⚠️ Bu raqam egasi botga ulanmagan va TELEGRAM_GATEWAY_TOKEN kiritilmagan. "
+                    "O'zingizning Telegram raqamingizni tasdiqlash uchun pastdagi "
+                    "«📲 Joriy Telegram raqamimni tasdiqlash» tugmasini bosing."
                 ),
                 'needs_telegram_contact': True,
             }, status=400))

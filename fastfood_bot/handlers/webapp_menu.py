@@ -369,10 +369,6 @@ async def process_webapp_shared_contact(message: types.Message):
 
         await create_user(user.id, user.username, user.full_name)
         await remember_phone(user.id, norm_phone, force_owner=True)
-        await message.answer(
-            get_text("phone_saved_entry", lang, phone=norm_phone),
-            parse_mode="HTML",
-        )
     except Exception as e:
         log.warning(f"Shared contact error: {e}")
 

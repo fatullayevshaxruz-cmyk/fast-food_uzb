@@ -81,7 +81,7 @@ async def _send_welcome_menu(message: types.Message, user: types.User, lang: str
     """Tanlangan til bo'yicha asosiy menyu va xush kelibsiz xabarini yuboradi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-    webapp_url = f"{MENU_WEBAPP_URL}?v=20&lang={lang}&user_id={user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=21&lang={lang}&user_id={user.id}"
     web_btn_labels = {
         "uz": "🌐 Menu ilova",
         "ru": "🌐 Меню приложение",
@@ -213,7 +213,7 @@ async def cmd_webapp(message: types.Message, state: FSMContext):
     except Exception:
         lang = "uz"
 
-    webapp_url = f"{MENU_WEBAPP_URL}?v=20&lang={lang}&user_id={message.from_user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=21&lang={lang}&user_id={message.from_user.id}"
 
     # Inline klaviatura orqali WebApp tugmasi yuborish
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton

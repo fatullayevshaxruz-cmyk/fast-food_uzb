@@ -422,10 +422,16 @@
       );
     }
 
-    // ─── 2.5 PROMO CAROUSEL (Auto-play, peek, pill indicators) ─────────
+    // ─── 2.5 PROMO CAROUSEL (Auto-play, peek, pill indicators, Direct-to-Cart) ──
     const resolveMediaUrl = (u) => (!u ? '' : /^https?:\/\//.test(u) ? u : `${API_BASE}${u}`);
+    const FALLBACK_FOOD_IMAGE =
+      'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80';
+    const handleImageError = (e) => {
+      e.currentTarget.onerror = null;
+      e.currentTarget.src = FALLBACK_FOOD_IMAGE;
+    };
 
-    function PromoCarousel({ banners, onBannerClick }) {
+    function PromoCarousel({ banners, onBannerClick, onOrderNow }) {
       const trackRef = useRef(null);
       const timerRef = useRef(null);
       const activeRef = useRef(0);
@@ -468,6 +474,7 @@
         if (idx !== activeRef.current) {
           activeRef.current = idx;
           setActive(idx);
+          startTimer();
         }
       };
 
@@ -487,28 +494,54 @@
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {banners.map((b, i) => (
-              <button
+              <div
                 key={b.id ?? i}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => onBannerClick && onBannerClick(b)}
-                className="relative shrink-0 w-[86%] aspect-[2.15/1] rounded-[20px] overflow-hidden snap-start text-left shadow-[0_8px_24px_rgba(0,0,0,0.10)] active:scale-[0.985] transition-transform"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBannerClick && onBannerClick(b); } }}
+                className="relative shrink-0 w-[88%] h-[155px] rounded-[20px] overflow-hidden snap-start text-left shadow-[0_8px_24px_rgba(0,0,0,0.12)] active:scale-[0.985] transition-transform cursor-pointer select-none"
                 style={{ background: b.color || 'linear-gradient(135deg,#E50914 0%,#FF6B3D 100%)' }}
               >
-                {b.image && (
-                  <img
-                    src={resolveMediaUrl(b.image)}
-                    alt={b.title || ''}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                    draggable={false}
-                  />
+                <img
+                  src={resolveMediaUrl(b.image) || FALLBACK_FOOD_IMAGE}
+                  alt={b.title || ''}
+                  onError={handleImageError}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  loading={i === 0 ? 'eager' : 'lazy'}
+                  draggable={false}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/15" />
+
+                {(b.badge || b.tag) && (
+                  <div className="absolute top-3 left-3.5 inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#E50914] text-white text-[10px] font-extrabold tracking-wide shadow-sm">
+                    {b.badge || b.tag}
+                  </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-                <div className="absolute left-4 right-4 bottom-3.5 text-white">
-                  {b.title && <div className="text-[17px] font-extrabold leading-tight drop-shadow">{b.title}</div>}
-                  {b.subtitle && <div className="text-xs font-medium opacity-90 mt-0.5 line-clamp-2">{b.subtitle}</div>}
+
+                <div className="absolute left-3.5 right-3.5 bottom-3 text-white">
+                  {b.title && (
+                    <div className="text-[16px] font-extrabold leading-tight drop-shadow line-clamp-1">
+                      {b.title}
+                    </div>
+                  )}
+                  {b.subtitle && (
+                    <div className="text-[11px] font-medium text-white/85 mt-0.5 line-clamp-1">
+                      {b.subtitle}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOrderNow && onOrderNow(b);
+                    }}
+                    className="mt-2 inline-flex items-center gap-1 text-[10px] font-extrabold text-[#E50914] bg-white px-2.5 py-1 rounded-full shadow-sm active:scale-95 transition-transform hover:bg-neutral-50 cursor-pointer"
+                  >
+                    <span>{(b.button_text || 'Buyurtma berish').replace(/\s*→$/, '')} →</span>
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
             <div className="shrink-0 w-1" aria-hidden="true" />
           </div>
@@ -522,12 +555,115 @@
                   aria-label={`Banner ${i + 1}`}
                   onClick={() => { goTo(i); startTimer(); }}
                   className={`h-1.5 rounded-full transition-all duration-300 ${
-                    i === active ? 'w-5 bg-[#E50914]' : 'w-1.5 bg-neutral-300'
+                    i === active ? 'w-6 bg-[#E50914]' : 'w-1.5 bg-neutral-300'
                   }`}
                 />
               ))}
             </div>
           )}
+        </div>
+      );
+    }
+
+    // ─── 2.5.1 PROMO PRODUCT MODAL (iOS Bottom Sheet) ─────────────────
+    function PromoProductModal({ banner, onClose, onConfirmOrder }) {
+      const [qty, setQty] = useState(1);
+
+      useEffect(() => {
+        setQty(1);
+      }, [banner]);
+
+      if (!banner) return null;
+      const product = banner.product || {};
+      const title = product.name || banner.title || 'Aksiya taklifi';
+      const description = product.description || banner.subtitle || '';
+      const price = Number(product.price || banner.price || 45000);
+      const oldPrice = Number(product.old_price || banner.old_price || 0);
+      const imageSrc = resolveMediaUrl(product.image_url || banner.image) || FALLBACK_FOOD_IMAGE;
+
+      return (
+        <div
+          className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center animate-ios-in"
+          onClick={onClose}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-t-[28px] sm:rounded-[28px] overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative aspect-[16/10] bg-neutral-900">
+              <img
+                src={imageSrc}
+                alt={title}
+                onError={handleImageError}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/25" />
+              <div className="w-10 h-1 rounded-full bg-white/70 absolute top-2.5 left-1/2 -translate-x-1/2 sm:hidden" />
+              {(banner.badge || banner.tag) && (
+                <span className="absolute top-3.5 left-4 px-3 py-1 rounded-full bg-[#E50914] text-white text-[11px] font-extrabold shadow-md">
+                  {banner.badge || banner.tag}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Yopish"
+                className="absolute top-3 right-3.5 w-8 h-8 rounded-full bg-black/45 backdrop-blur-md text-white flex items-center justify-center text-sm font-bold active:scale-90 transition-transform"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <h3 className="text-lg font-extrabold text-neutral-900 leading-snug">{title}</h3>
+                {description && (
+                  <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">{description}</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between bg-[#F9F9FB] rounded-2xl p-3.5 border border-neutral-100">
+                <div>
+                  <div className="text-xl font-extrabold text-[#E50914]">
+                    {formatPrice(price)} so'm
+                  </div>
+                  {oldPrice > price && (
+                    <div className="text-xs text-neutral-400 line-through">
+                      {formatPrice(oldPrice)} so'm
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 bg-white rounded-xl p-1 border border-neutral-200 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => { hapticImpact('light'); setQty((q) => Math.max(1, q - 1)); }}
+                    className="w-8 h-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-base flex items-center justify-center active:scale-90 transition-transform"
+                  >
+                    −
+                  </button>
+                  <span className="w-7 text-center text-sm font-extrabold text-neutral-900 tabular-nums">
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { hapticImpact('light'); setQty((q) => Math.min(50, q + 1)); }}
+                    className="w-8 h-8 rounded-lg bg-[#E50914] text-white font-extrabold text-base flex items-center justify-center active:scale-90 transition-transform"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onConfirmOrder(banner, qty)}
+                className="w-full py-4 rounded-2xl bg-[#E50914] hover:bg-[#c90812] active:scale-[0.98] text-white font-extrabold text-sm shadow-[0_10px_25px_rgba(229,9,20,0.32)] transition-all"
+              >
+                🛒 Buyurtmaga kiritish ({formatPrice(price * qty)} so'm) →
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -600,7 +736,7 @@
                     style={!thumb ? { background: s.color || 'linear-gradient(160deg,#E50914 0%,#7F1D1D 100%)' } : undefined}
                   >
                     {thumb ? (
-                      <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" draggable={false} />
+                      <img src={thumb} alt="" onError={handleImageError} className="absolute inset-0 w-full h-full object-cover" loading="lazy" draggable={false} />
                     ) : s.type === 'video' ? (
                       <video src={resolveMediaUrl(s.url)} muted playsInline preload="metadata" className="absolute inset-0 w-full h-full object-cover" />
                     ) : null}
@@ -775,7 +911,7 @@
                 onError={() => setTimeout(() => nextRef.current(), 600)}
               />
             ) : mediaUrl ? (
-              <img key={item.id} src={mediaUrl} alt="" className="w-full h-full object-contain" draggable={false} />
+              <img key={item.id} src={mediaUrl} alt="" onError={handleImageError} className="w-full h-full object-contain" draggable={false} />
             ) : (
               <div
                 key={item.id}
@@ -814,7 +950,7 @@
               ))}
             </div>
             <div className="mt-3 flex items-center gap-2.5">
-              <img src={`${API_BASE}/webapp/logo.jpg`} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/70" />
+              <img src={`${API_BASE}/webapp/logo.jpg`} alt="" onError={handleImageError} className="w-8 h-8 rounded-full object-cover ring-2 ring-white/70" />
               <div className="flex-1 min-w-0 text-white">
                 <div className="text-[13px] font-bold leading-tight">kafe_fastfood</div>
                 <div className="text-[11px] opacity-75 leading-tight">
@@ -1166,6 +1302,7 @@
       // 📸 Promo bannerlar + Instagram Stories/Reels
       const [promoBanners, setPromoBanners] = useState([]);
       const [promoStories, setPromoStories] = useState([]);
+      const [promoModalBanner, setPromoModalBanner] = useState(null);
       const [storyViewerData, setStoryViewerData] = useState(null);
       const [viewedStoryIds, setViewedStoryIds] = useState(() => {
         try { return new Set(JSON.parse(localStorage.getItem('kafe_viewed_stories') || '[]')); }
@@ -1245,7 +1382,13 @@
       );
 
       // Savat dastlab bo'sh bo'ladi (mijoz o'zi taom qo'shmaguncha Savatda (1) chiqmaydi)
+      const cartStorageKey = `kafe_cart_${initialUid || 'guest'}`;
       const [cart, setCart] = useState({});
+      useEffect(() => {
+        try {
+          localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+        } catch (e) {}
+      }, [cart, cartStorageKey]);
 
       // Delivery & Promo State
       const [deliveryType, setDeliveryType] = useState('delivery'); // 'delivery' | 'eat_in'
@@ -1588,8 +1731,9 @@
         } catch (e) {}
       }, []);
 
-      const addToCart = (product) => {
-        hapticImpact('light');
+      const addToCart = (product, qtyToAdd = 1, withLightHaptic = true) => {
+        if (withLightHaptic) hapticImpact('light');
+        const addCount = Math.max(1, Number(qtyToAdd) || 1);
         setCart((prev) => {
           const existing = prev[product.id];
           return {
@@ -1598,11 +1742,32 @@
               id: product.id,
               name: product.name_ru || product.name,
               price: product.price,
-              image_url: product.image_url,
-              qty: existing ? existing.qty + 1 : 1,
+              image_url: resolveMediaUrl(product.image_url || '') || FALLBACK_FOOD_IMAGE,
+              qty: existing ? existing.qty + addCount : addCount,
             },
           };
         });
+      };
+
+      const handleDirectBannerOrder = (banner, qty = 1) => {
+        if (!banner) return;
+        const prod = banner.product || {
+          id: 900 + Number(banner.id || 1),
+          name: banner.title || 'Aksiya taklifi',
+          price: Number(banner.price) || 45000,
+          old_price: banner.old_price || null,
+          image_url: resolveMediaUrl(banner.image || '') || FALLBACK_FOOD_IMAGE,
+          description: banner.subtitle || '',
+        };
+        addToCart(prod, qty, false);
+        try {
+          window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('heavy');
+        } catch (e) {}
+        setPromoModalBanner(null);
+        setActiveTab('cart');
+        try {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (e) {}
       };
 
       const removeFromCart = (productId) => {
@@ -1891,6 +2056,7 @@
                 <img
                   src="/webapp/logo.jpg"
                   alt="Fast-Food"
+                  onError={handleImageError}
                   className="w-10 h-10 rounded-full object-cover shadow-[0_4px_12px_rgba(229,9,20,0.3)] ring-1 ring-[#E50914]/20 shrink-0 bg-[#E50914]"
                 />
                 <div>
@@ -2288,18 +2454,13 @@
                ============================================================ */}
             {activeTab === 'home' && (
               <div className="space-y-4 animate-ios-in">
-                {/* A) Avto-aylanuvchi aksiya bannerlari */}
+                {/* A) Avto-aylanuvchi aksiya bannerlari (Direct-to-Cart + PromoProductModal) */}
                 <PromoCarousel
                   banners={promoBanners}
+                  onOrderNow={(b) => handleDirectBannerOrder(b, 1)}
                   onBannerClick={(b) => {
                     hapticImpact('light');
-                    const link = String(b.link || '');
-                    if (link.startsWith('category:')) {
-                      const cid = parseInt(link.split(':')[1], 10);
-                      if (cid) jumpToCategory(cid);
-                    } else if (/^https?:\/\//.test(link)) {
-                      try { tg?.openLink ? tg.openLink(link) : window.open(link, '_blank'); } catch (e) {}
-                    }
+                    setPromoModalBanner(b);
                   }}
                 />
 
@@ -2392,6 +2553,7 @@
                             <img
                               src={product.image_url}
                               alt={product.name}
+                              onError={handleImageError}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -3244,6 +3406,15 @@
                 </button>
               </div>
             </div>
+          )}
+
+          {/* ─── 🎁 Promo Product Bottom Sheet Modal ─── */}
+          {promoModalBanner && (
+            <PromoProductModal
+              banner={promoModalBanner}
+              onClose={() => setPromoModalBanner(null)}
+              onConfirmOrder={(b, q) => handleDirectBannerOrder(b, q)}
+            />
           )}
 
           {/* ─── 📸 Full-screen Story Viewer ─── */}

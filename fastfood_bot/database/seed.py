@@ -287,3 +287,40 @@ async def seed_data():
                 )
         except Exception:
             pass
+
+        # ── Aksiya karuseli maxsus mahsulotlari (Direct-to-Cart uchun, id=901..904) ──
+        try:
+            from utils.instagram_sync import DEFAULT_BANNERS
+            for b in DEFAULT_BANNERS:
+                p = b.get("product")
+                if not p or not p.get("id"):
+                    continue
+                pid = int(p["id"])
+                pname = p["name"]
+                pdesc = p.get("description") or b.get("subtitle") or ""
+                pprice = int(p["price"])
+                pold = int(p["old_price"]) if p.get("old_price") else None
+                pimg = p.get("image_url") or b.get("image") or ""
+                exists = await conn.fetchrow("SELECT id FROM products WHERE id = $1", pid)
+                if exists:
+                    await conn.execute(
+                        """
+                        UPDATE products
+                        SET name = $1, name_ru = $2, name_en = $3,
+                            description = $4, price = $5, old_price = $6,
+                            image_url = $7, category_id = NULL, is_active = $8
+                        WHERE id = $9
+                        """,
+                        pname, pname, pname, pdesc, pprice, pold, pimg, True, pid,
+                    )
+                else:
+                    await conn.execute(
+                        """
+                        INSERT INTO products
+                            (id, category_id, name, name_ru, name_en, description, price, old_price, image_url, is_active)
+                        VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9)
+                        """,
+                        pid, pname, pname, pname, pdesc, pprice, pold, pimg, True,
+                    )
+        except Exception:
+            pass

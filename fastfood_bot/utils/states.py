@@ -69,3 +69,12 @@ class PromoCodeStates(StatesGroup):
 
 class FeedbackStates(StatesGroup):
     waiting_comment         = State()   # Past baho (1-3 ⭐) dan keyin sabab so'rash
+
+
+class StoryAdminStates(StatesGroup):
+    waiting_media           = State()
+    waiting_caption         = State()
+    waiting_subtitle        = State()
+    editing_caption         = State()
+    editing_subtitle        = State()
+    replacing_media         = State()

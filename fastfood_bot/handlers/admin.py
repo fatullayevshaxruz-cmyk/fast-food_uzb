@@ -2,9 +2,11 @@ import asyncio
 import csv
 import io
 import logging
+import os
 import random
 import time
 from datetime import datetime, date, timedelta
+from pathlib import Path
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -14,7 +16,10 @@ from keyboards.admin_keyboard import (
     get_admin_keyboard, get_order_status_keyboard,
     STATUS_LABELS, get_status_label
 )
-from utils.states import AdminStates, AddProductStates, AdminProductStates, PromoCodeStates
+from utils.states import (
+    AdminStates, AddProductStates, AdminProductStates,
+    PromoCodeStates, StoryAdminStates
+)
 from database.connection import get_db_pool
 from database.crud import (
     get_categories, add_product, get_all_orders, get_order_by_id,
@@ -85,7 +90,8 @@ async def _build_admin_dashboard_text() -> str:
         f"  ➕ <b>Mahsulot qo'shish</b> — yangi taomni 5 qadamda menyuga kiritish\n"
         f"  🎟 <b>Promo kodlar</b> — kuponlar yaratish, muzlatish va e'lon qilish\n"
         f"  📥 <b>Hisobot (CSV)</b> — Excel/CSV buxgalteriya hisobotlari va mijozlar bazasi\n"
-        f"  🛠 <b>Admin menyu / Menyu boshqaruvi</b> — narx, rasm va chegirmalar"
+        f"  🛠 <b>Admin menyu / Menyu boshqaruvi</b> — narx, rasm va chegirmalar\n"
+        f"  📸 <b>Stories & Reels</b> — mini-ilova stories va videolarini qo'shish, tahrirlash va o'chirish"
     )
 
 
@@ -97,6 +103,9 @@ def _get_admin_dashboard_inline() -> InlineKeyboardMarkup:
     )
     markup.add(
         InlineKeyboardButton("🎲 Tezkor VIP Promo yaratish", callback_data="promo_random"),
+        InlineKeyboardButton("📸 Stories & Reels boshqaruvi", callback_data="adm_stories_menu"),
+    )
+    markup.add(
         InlineKeyboardButton("🔄 Panelni yangilash", callback_data="adm_dash_refresh"),
     )
     return markup
@@ -1897,6 +1906,422 @@ async def delivery_finish_callback(call: types.CallbackQuery):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 10. 📸 STORIES & REELS BOSHQARUVI (Admin CRUD)
+# ══════════════════════════════════════════════════════════════════════
+
+_SHOWCASE_MEDIA_DIR = Path(__file__).resolve().parent.parent / "webapp" / "media" / "showcase"
+_SHOWCASE_URL_PREFIX = "/webapp/media/showcase"
+
+
+def _build_stories_manager_view():
+    from utils.instagram_sync import load_showcase_items
+    items = load_showcase_items()
+    stories_cnt = sum(1 for it in items if it.get("kind") != "reel" and it.get("type") != "video")
+    reels_cnt = sum(1 for it in items if it.get("kind") == "reel" or it.get("type") == "video")
+
+    text = (
+        f"📸 <b>STORIES & REELS BOSHQARUVI</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🖼 Stories (rasmlar): <b>{stories_cnt} ta</b> | "
+        f"🎬 Reels (videolar): <b>{reels_cnt} ta</b>\n\n"
+    )
+    if not items:
+        text += "<i>Hozircha Stories & Reels ro'yxati bo'sh. Yangisini qo'shishingiz mumkin.</i>"
+    else:
+        text += "👇 <i>Tahrirlash, media almashtirish yoki o'chirish uchun elementni tanlang:</i>"
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    for idx, it in enumerate(items[:20], start=1):
+        is_reel = it.get("kind") == "reel" or it.get("type") == "video"
+        icon = "🎬" if is_reel else "📸"
+        cap = (it.get("caption") or f"Element #{idx}").strip()
+        markup.add(
+            InlineKeyboardButton(
+                f"{idx}. {icon} {cap[:38]}",
+                callback_data=f"adm_story_view_{it['id']}"
+            )
+        )
+    markup.row(
+        InlineKeyboardButton("➕ Yangi Story (Rasm)", callback_data="adm_story_add_story"),
+        InlineKeyboardButton("➕ Yangi Video (Reels)", callback_data="adm_story_add_reel"),
+    )
+    markup.row(
+        InlineKeyboardButton("♻️ Standartga tiklash", callback_data="adm_story_reset"),
+        InlineKeyboardButton("🔄 Yangilash", callback_data="adm_stories_menu"),
+    )
+    markup.add(InlineKeyboardButton("⬅️ Admin panel", callback_data="adm_dash_refresh"))
+    return text, markup
+
+
+def _build_story_detail_view(item: dict):
+    is_reel = item.get("kind") == "reel" or item.get("type") == "video"
+    kind_label = "🎬 Reel (Video)" if is_reel else "📸 Story (Rasm)"
+    text = (
+        f"🎛 <b>ELEMENTNI TAHRIRLASH</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📌 Turi: <b>{kind_label}</b>\n"
+        f"📝 Sarlavha: <b>{item.get('caption') or '—'}</b>\n"
+        f"💬 Izoh: <i>{item.get('subtitle') or '—'}</i>\n"
+        f"🔗 Media: <code>{item.get('url') or '—'}</code>"
+    )
+    sid = item["id"]
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("✏️ Sarlavhani o'zgartirish", callback_data=f"adm_story_editcap_{sid}"),
+        InlineKeyboardButton("📝 Izohni o'zgartirish", callback_data=f"adm_story_editsub_{sid}"),
+    )
+    markup.add(
+        InlineKeyboardButton("🖼 Rasm/Videoni almashtirish", callback_data=f"adm_story_media_{sid}"),
+        InlineKeyboardButton("🗑 O'chirish", callback_data=f"adm_story_del_{sid}"),
+    )
+    markup.add(InlineKeyboardButton("⬅️ Ro'yxatga qaytish", callback_data="adm_stories_menu"))
+    return text, markup
+
+
+async def _download_story_media_from_message(message: types.Message, expected_type: str = None):
+    """Telegram xabaridan rasm, video yoki URL manzilni yuklab oladi -> (url, thumb_url, media_type)."""
+    _SHOWCASE_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    ts = int(time.time() * 1000)
+
+    if message.photo:
+        fname = f"custom_story_{ts}.jpg"
+        dest = _SHOWCASE_MEDIA_DIR / fname
+        await message.photo[-1].download(destination_file=str(dest))
+        url = f"{_SHOWCASE_URL_PREFIX}/{fname}"
+        return url, url, "image"
+
+    if message.video:
+        fname = f"custom_reel_{ts}.mp4"
+        dest = _SHOWCASE_MEDIA_DIR / fname
+        await message.video.download(destination_file=str(dest))
+        url = f"{_SHOWCASE_URL_PREFIX}/{fname}"
+        thumb_url = ""
+        if message.video.thumb:
+            tname = f"custom_reel_{ts}_thumb.jpg"
+            tdest = _SHOWCASE_MEDIA_DIR / tname
+            try:
+                await message.video.thumb.download(destination_file=str(tdest))
+                thumb_url = f"{_SHOWCASE_URL_PREFIX}/{tname}"
+            except Exception:
+                thumb_url = ""
+        return url, thumb_url, "video"
+
+    if message.document:
+        mime = (message.document.mime_type or "").lower()
+        orig_name = (message.document.file_name or "").lower()
+        if mime.startswith("video/") or orig_name.endswith(".mp4"):
+            fname = f"custom_reel_{ts}.mp4"
+            dest = _SHOWCASE_MEDIA_DIR / fname
+            await message.document.download(destination_file=str(dest))
+            return f"{_SHOWCASE_URL_PREFIX}/{fname}", "", "video"
+        if mime.startswith("image/") or orig_name.endswith((".jpg", ".jpeg", ".png", ".webp")):
+            fname = f"custom_story_{ts}.jpg"
+            dest = _SHOWCASE_MEDIA_DIR / fname
+            await message.document.download(destination_file=str(dest))
+            url = f"{_SHOWCASE_URL_PREFIX}/{fname}"
+            return url, url, "image"
+
+    if message.text and message.text.strip().startswith(("http://", "https://")):
+        url = message.text.strip()
+        mtype = expected_type or ("video" if url.lower().endswith(".mp4") else "image")
+        thumb = url if mtype == "image" else ""
+        return url, thumb, mtype
+
+    return None, None, None
+
+
+async def admin_stories_menu(message: types.Message, state: FSMContext = None):
+    if not _is_admin(message.from_user.id):
+        return
+    if state:
+        await state.finish()
+    text, markup = _build_stories_manager_view()
+    await message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+async def admin_stories_menu_cb(call: types.CallbackQuery, state: FSMContext = None):
+    if not _is_admin(call.from_user.id):
+        return
+    if state:
+        await state.finish()
+    text, markup = _build_stories_manager_view()
+    try:
+        await call.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    except Exception:
+        await call.message.answer(text, reply_markup=markup, parse_mode="HTML")
+    await call.answer()
+
+
+async def admin_story_view_cb(call: types.CallbackQuery):
+    if not _is_admin(call.from_user.id):
+        return
+    from utils.instagram_sync import load_showcase_items
+    sid = call.data[len("adm_story_view_"):]
+    items = load_showcase_items()
+    item = next((x for x in items if str(x.get("id")) == sid), None)
+    if not item:
+        await call.answer("❌ Element topilmadi.", show_alert=True)
+        return
+    text, markup = _build_story_detail_view(item)
+    try:
+        await call.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    except Exception:
+        await call.message.answer(text, reply_markup=markup, parse_mode="HTML")
+    await call.answer()
+
+
+async def admin_story_delete_cb(call: types.CallbackQuery):
+    if not _is_admin(call.from_user.id):
+        return
+    from utils.instagram_sync import load_showcase_items, save_showcase_items
+    sid = call.data[len("adm_story_del_"):]
+    items = load_showcase_items()
+    new_items = [x for x in items if str(x.get("id")) != sid]
+    if len(new_items) == len(items):
+        await call.answer("❌ Element topilmadi.", show_alert=True)
+        return
+    save_showcase_items(new_items)
+    await call.answer("🗑 O'chirildi!", show_alert=False)
+    text, markup = _build_stories_manager_view()
+    try:
+        await call.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    except Exception:
+        await call.message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+async def admin_story_reset_cb(call: types.CallbackQuery):
+    if not _is_admin(call.from_user.id):
+        return
+    from utils.instagram_sync import reset_showcase_items
+    reset_showcase_items()
+    await call.answer("♻️ Standart Stories & Reels tiklandi!", show_alert=False)
+    text, markup = _build_stories_manager_view()
+    try:
+        await call.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    except Exception:
+        await call.message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+async def admin_story_cancel_cb(call: types.CallbackQuery, state: FSMContext):
+    if not _is_admin(call.from_user.id):
+        return
+    await state.finish()
+    await call.answer("❌ Bekor qilindi")
+    text, markup = _build_stories_manager_view()
+    try:
+        await call.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
+    except Exception:
+        await call.message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+async def admin_story_add_start_cb(call: types.CallbackQuery, state: FSMContext):
+    if not _is_admin(call.from_user.id):
+        return
+    is_reel = call.data == "adm_story_add_reel"
+    kind = "reel" if is_reel else "story"
+    expected_type = "video" if is_reel else "image"
+    await StoryAdminStates.waiting_media.set()
+    await state.update_data(story_kind=kind, expected_type=expected_type)
+    kb = InlineKeyboardMarkup().add(InlineKeyboardButton("❌ Bekor qilish", callback_data="adm_story_cancel"))
+    prompt = (
+        "🎬 <b>YANGI VIDEO (REELS) QO'SHISH (1/3)</b>\n\n"
+        "Video yuboring (MP4) yoki to'g'ridan-to'g'ri video havolasini (<code>https://...</code>) yozing:"
+        if is_reel
+        else
+        "📸 <b>YANGI STORY (RASM) QO'SHISH (1/3)</b>\n\n"
+        "Rasm yuboring yoki rasm havolasini (<code>https://...</code>) yozing:"
+    )
+    await call.message.answer(prompt, reply_markup=kb, parse_mode="HTML")
+    await call.answer()
+
+
+async def admin_story_add_media(message: types.Message, state: FSMContext):
+    if not _is_admin(message.from_user.id):
+        return
+    if message.text and message.text.strip().lower() == "/bekor":
+        await state.finish()
+        await message.answer("❌ Bekor qilindi.")
+        return
+    st_data = await state.get_data()
+    url, thumb, mtype = await _download_story_media_from_message(message, st_data.get("expected_type"))
+    if not url:
+        await message.answer("⚠️ Iltimos, rasm, video yoki <code>https://...</code> havola yuboring:", parse_mode="HTML")
+        return
+    await state.update_data(media_url=url, thumb_url=thumb, media_type=mtype)
+    await StoryAdminStates.waiting_caption.set()
+    kb = InlineKeyboardMarkup().add(InlineKeyboardButton("❌ Bekor qilish", callback_data="adm_story_cancel"))
+    await message.answer(
+        "✏️ <b>2/3-qadam:</b> Story/Video sarlavhasini yozing\n"
+        "<i>(Masalan: 🍔 Yangi Smash Burger Aksiyasi)</i>:",
+        reply_markup=kb,
+        parse_mode="HTML",
+    )
+
+
+async def admin_story_add_caption(message: types.Message, state: FSMContext):
+    if not _is_admin(message.from_user.id):
+        return
+    cap = (message.text or "").strip()
+    if len(cap) < 2:
+        await message.answer("⚠️ Kamida 2 ta belgi yozing:")
+        return
+    await state.update_data(caption=cap[:120])
+    await StoryAdminStates.waiting_subtitle.set()
+    kb = InlineKeyboardMarkup().add(InlineKeyboardButton("❌ Bekor qilish", callback_data="adm_story_cancel"))
+    await message.answer(
+        "📝 <b>3/3-qadam:</b> Qisqa izoh yozing\n"
+        "<i>(O'tkazib yuborish uchun <code>-</code> yozing)</i>:",
+        reply_markup=kb,
+        parse_mode="HTML",
+    )
+
+
+async def admin_story_add_subtitle(message: types.Message, state: FSMContext):
+    if not _is_admin(message.from_user.id):
+        return
+    from utils.instagram_sync import load_showcase_items, save_showcase_items
+    sub_raw = (message.text or "").strip()
+    subtitle = "" if sub_raw == "-" else sub_raw[:200]
+    data = await state.get_data()
+    kind = data.get("story_kind") or "story"
+    mtype = data.get("media_type") or ("video" if kind == "reel" else "image")
+    new_id = f"custom_{int(time.time())}"
+    new_item = {
+        "id": new_id,
+        "kind": kind,
+        "type": mtype,
+        "url": data["media_url"],
+        "thumbnail": data.get("thumb_url") or "",
+        "caption": data["caption"],
+        "subtitle": subtitle,
+        "badge": "🎬 Reels" if kind == "reel" else "🔥 Yangi",
+        "theme_color": "#E50914",
+        "category_id": 1,
+        "cta_label": "🍽 Menyuda ko'rish",
+        "permalink": "",
+        "taken_at": int(time.time()),
+    }
+    items = load_showcase_items()
+    items.insert(0, new_item)
+    save_showcase_items(items)
+    await state.finish()
+    text, markup = _build_stories_manager_view()
+    await message.answer(
+        f"✅ <b>Yangi {'Video (Reels)' if kind == 'reel' else 'Story'} qo'shildi!</b>\n"
+        f"Mini-ilovada darhol ko'rinadi.",
+        parse_mode="HTML",
+    )
+    await message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+async def admin_story_editcap_start_cb(call: types.CallbackQuery, state: FSMContext):
+    if not _is_admin(call.from_user.id):
+        return
+    sid = call.data[len("adm_story_editcap_"):]
+    await StoryAdminStates.editing_caption.set()
+    await state.update_data(edit_story_id=sid)
+    kb = InlineKeyboardMarkup().add(InlineKeyboardButton("❌ Bekor qilish", callback_data="adm_story_cancel"))
+    await call.message.answer("✏️ Yangi sarlavhani yuboring:", reply_markup=kb)
+    await call.answer()
+
+
+async def admin_story_editcap_done(message: types.Message, state: FSMContext):
+    if not _is_admin(message.from_user.id):
+        return
+    from utils.instagram_sync import load_showcase_items, save_showcase_items
+    new_cap = (message.text or "").strip()
+    if len(new_cap) < 2:
+        await message.answer("⚠️ Kamida 2 ta belgi yozing:")
+        return
+    sid = (await state.get_data()).get("edit_story_id")
+    items = load_showcase_items()
+    target = next((x for x in items if str(x.get("id")) == str(sid)), None)
+    await state.finish()
+    if not target:
+        await message.answer("❌ Element topilmadi.")
+        return
+    target["caption"] = new_cap[:120]
+    save_showcase_items(items)
+    text, markup = _build_story_detail_view(target)
+    await message.answer("✅ Sarlavha yangilandi!")
+    await message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+async def admin_story_editsub_start_cb(call: types.CallbackQuery, state: FSMContext):
+    if not _is_admin(call.from_user.id):
+        return
+    sid = call.data[len("adm_story_editsub_"):]
+    await StoryAdminStates.editing_subtitle.set()
+    await state.update_data(edit_story_id=sid)
+    kb = InlineKeyboardMarkup().add(InlineKeyboardButton("❌ Bekor qilish", callback_data="adm_story_cancel"))
+    await call.message.answer("📝 Yangi izohni yuboring (tozalash uchun <code>-</code> yozing):", reply_markup=kb, parse_mode="HTML")
+    await call.answer()
+
+
+async def admin_story_editsub_done(message: types.Message, state: FSMContext):
+    if not _is_admin(message.from_user.id):
+        return
+    from utils.instagram_sync import load_showcase_items, save_showcase_items
+    raw = (message.text or "").strip()
+    new_sub = "" if raw == "-" else raw[:200]
+    sid = (await state.get_data()).get("edit_story_id")
+    items = load_showcase_items()
+    target = next((x for x in items if str(x.get("id")) == str(sid)), None)
+    await state.finish()
+    if not target:
+        await message.answer("❌ Element topilmadi.")
+        return
+    target["subtitle"] = new_sub
+    save_showcase_items(items)
+    text, markup = _build_story_detail_view(target)
+    await message.answer("✅ Izoh yangilandi!")
+    await message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+async def admin_story_media_start_cb(call: types.CallbackQuery, state: FSMContext):
+    if not _is_admin(call.from_user.id):
+        return
+    sid = call.data[len("adm_story_media_"):]
+    await StoryAdminStates.replacing_media.set()
+    await state.update_data(edit_story_id=sid)
+    kb = InlineKeyboardMarkup().add(InlineKeyboardButton("❌ Bekor qilish", callback_data="adm_story_cancel"))
+    await call.message.answer(
+        "🖼 Yangi rasm, video (MP4) yoki havola (<code>https://...</code>) yuboring:",
+        reply_markup=kb,
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+async def admin_story_media_done(message: types.Message, state: FSMContext):
+    if not _is_admin(message.from_user.id):
+        return
+    from utils.instagram_sync import load_showcase_items, save_showcase_items
+    url, thumb, mtype = await _download_story_media_from_message(message)
+    if not url:
+        await message.answer("⚠️ Iltimos, rasm, video yoki havola yuboring:")
+        return
+    sid = (await state.get_data()).get("edit_story_id")
+    items = load_showcase_items()
+    target = next((x for x in items if str(x.get("id")) == str(sid)), None)
+    await state.finish()
+    if not target:
+        await message.answer("❌ Element topilmadi.")
+        return
+    target["url"] = url
+    target["type"] = mtype
+    target["kind"] = "reel" if mtype == "video" else "story"
+    if thumb:
+        target["thumbnail"] = thumb
+    elif mtype == "image":
+        target["thumbnail"] = url
+    save_showcase_items(items)
+    text, markup = _build_story_detail_view(target)
+    await message.answer("✅ Media fayli muvaffaqiyatli almashtirildi!")
+    await message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+# ══════════════════════════════════════════════════════════════════════
 # HANDLERLARNI RO'YXATDAN O'TKAZISH
 # ══════════════════════════════════════════════════════════════════════
 
@@ -1908,6 +2333,7 @@ def register_admin_handlers(dp: Dispatcher):
     _ADDPROD_TEXTS = ["➕ Mahsulot qo'shish", "➕ Добавить продукт", "➕ Add Product"]
     _PROMO_TEXTS   = ["🎟 Promo kodlar", "🎟 Промо-коды", "🎟 Promo Codes"]
     _CSV_TEXTS     = ["📥 Hisobot (CSV)", "📥 Отчёт (CSV)", "📥 Report (CSV)"]
+    _STORIES_TEXTS = ["📸 Stories & Reels"]
 
     # Kafe kanalidagi (-1004376258203) Qabul qilish / Bekor qilish inline tugmalari
     dp.register_callback_query_handler(
@@ -2002,3 +2428,21 @@ def register_admin_handlers(dp: Dispatcher):
     # CSV eksport
     dp.register_message_handler(admin_csv_export, lambda m: m.text in _CSV_TEXTS, state="*")
     dp.register_callback_query_handler(admin_csv_export_cb, lambda c: c.data and c.data.startswith("csv_exp_"), state="*")
+
+    # Stories & Reels boshqaruvi
+    dp.register_message_handler(admin_stories_menu, lambda m: m.text in _STORIES_TEXTS, state="*")
+    dp.register_callback_query_handler(admin_stories_menu_cb, text="adm_stories_menu", state="*")
+    dp.register_callback_query_handler(admin_story_cancel_cb, text="adm_story_cancel", state="*")
+    dp.register_callback_query_handler(admin_story_view_cb, lambda c: c.data and c.data.startswith("adm_story_view_"), state="*")
+    dp.register_callback_query_handler(admin_story_delete_cb, lambda c: c.data and c.data.startswith("adm_story_del_"), state="*")
+    dp.register_callback_query_handler(admin_story_reset_cb, text="adm_story_reset", state="*")
+    dp.register_callback_query_handler(admin_story_add_start_cb, lambda c: c.data in ("adm_story_add_story", "adm_story_add_reel"), state="*")
+    dp.register_message_handler(admin_story_add_media, content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT, types.ContentType.TEXT], state=StoryAdminStates.waiting_media)
+    dp.register_message_handler(admin_story_add_caption, state=StoryAdminStates.waiting_caption)
+    dp.register_message_handler(admin_story_add_subtitle, state=StoryAdminStates.waiting_subtitle)
+    dp.register_callback_query_handler(admin_story_editcap_start_cb, lambda c: c.data and c.data.startswith("adm_story_editcap_"), state="*")
+    dp.register_message_handler(admin_story_editcap_done, state=StoryAdminStates.editing_caption)
+    dp.register_callback_query_handler(admin_story_editsub_start_cb, lambda c: c.data and c.data.startswith("adm_story_editsub_"), state="*")
+    dp.register_message_handler(admin_story_editsub_done, state=StoryAdminStates.editing_subtitle)
+    dp.register_callback_query_handler(admin_story_media_start_cb, lambda c: c.data and c.data.startswith("adm_story_media_"), state="*")
+    dp.register_message_handler(admin_story_media_done, content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT, types.ContentType.TEXT], state=StoryAdminStates.replacing_media)

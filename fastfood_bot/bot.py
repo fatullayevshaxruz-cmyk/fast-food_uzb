@@ -89,7 +89,7 @@ async def on_startup(dp):
                     "menu_button": {
                         "type": "web_app",
                         "text": "Меню",
-                        "web_app": {"url": f"{RENDER_URL}/webapp/app.html?v=21"},
+                        "web_app": {"url": f"{RENDER_URL}/webapp/app.html?v=22"},
                     }
                 },
                 timeout=aiohttp.ClientTimeout(total=8),
@@ -174,14 +174,16 @@ def main():
                 for p in active:
                     p_dict = dict(p)
                     prod_list.append({
-                        "id":           p_dict['id'],
-                        "name":         p_dict.get('name') or '',
-                        "name_ru":      p_dict.get('name_ru') or p_dict.get('name') or '',
-                        "name_en":      p_dict.get('name_en') or p_dict.get('name') or '',
-                        "description":  p_dict.get('description') or '',
-                        "price":        p_dict['price'],
-                        "old_price":    p_dict.get('old_price'),
-                        "image_url":    p_dict.get('image_url') or '',
+                        "id":             p_dict['id'],
+                        "name":           p_dict.get('name') or '',
+                        "name_ru":        p_dict.get('name_ru') or p_dict.get('name') or '',
+                        "name_en":        p_dict.get('name_en') or p_dict.get('name') or '',
+                        "description":    p_dict.get('description') or '',
+                        "description_ru": p_dict.get('description_ru') or p_dict.get('description') or '',
+                        "description_en": p_dict.get('description_en') or p_dict.get('description') or '',
+                        "price":          p_dict['price'],
+                        "old_price":      p_dict.get('old_price'),
+                        "image_url":      p_dict.get('image_url') or '',
                     })
                 result.append({
                     "id":      cat_dict['id'],

@@ -36,6 +36,7 @@ MEDIA_URL_PREFIX = "/webapp/media/stories"
 DATA_DIR = BASE_DIR / "data"
 CACHE_FILE = DATA_DIR / "promo_stories_cache.json"
 BANNERS_FILE = DATA_DIR / "promo_banners.json"
+SHOWCASE_CUSTOM_FILE = DATA_DIR / "showcase_items.json"
 SESSION_FILE = DATA_DIR / "ig_session.json"
 
 # ── Sozlamalar (.env) ───────────────────────────────────────────────────
@@ -347,6 +348,39 @@ def load_banners() -> List[Dict[str, Any]]:
 
 def save_banners(banners: List[Dict[str, Any]]) -> None:
     _write_json(BANNERS_FILE, banners)
+
+
+def _showcase_item_valid(item: Dict[str, Any]) -> bool:
+    url = str(item.get("url") or "")
+    if url.startswith(SHOWCASE_URL_PREFIX):
+        fname = url.rsplit("/", 1)[-1]
+        return (BASE_DIR / "webapp" / "media" / "showcase" / fname).exists()
+    if url.startswith(MEDIA_URL_PREFIX):
+        fname = url.rsplit("/", 1)[-1]
+        return (MEDIA_DIR / fname).exists()
+    return bool(url)
+
+
+def load_showcase_items() -> List[Dict[str, Any]]:
+    """Admin tahrirlagan yoki standart Stories & Reels ro'yxatini qaytaradi."""
+    if SHOWCASE_CUSTOM_FILE.exists():
+        data = _read_json(SHOWCASE_CUSTOM_FILE, None)
+        if isinstance(data, list):
+            return [dict(item) for item in data if _showcase_item_valid(item)]
+    return [dict(item) for item in DEFAULT_SHOWCASE_ITEMS if _showcase_item_valid(item)]
+
+
+def save_showcase_items(items: List[Dict[str, Any]]) -> None:
+    _write_json(SHOWCASE_CUSTOM_FILE, items)
+
+
+def reset_showcase_items() -> List[Dict[str, Any]]:
+    try:
+        if SHOWCASE_CUSTOM_FILE.exists():
+            SHOWCASE_CUSTOM_FILE.unlink()
+    except Exception:
+        pass
+    return load_showcase_items()
 
 
 def _load_cache() -> None:
@@ -683,15 +717,11 @@ def get_promo_payload() -> Dict[str, Any]:
     reels = list(_state.get("reels") or [])
     live_items = stories + reels
 
-    showcase_dir = BASE_DIR / "webapp" / "media" / "showcase"
-    curated = [
-        item for item in DEFAULT_SHOWCASE_ITEMS
-        if (showcase_dir / item["url"].rsplit("/", 1)[-1]).exists()
-    ]
+    curated = load_showcase_items()
 
     if live_items:
-        seen_ids = {i.get("id") for i in live_items}
-        items = live_items + [c for c in curated if c["id"] not in seen_ids]
+        seen_ids = {i.get("id") for i in curated}
+        items = curated + [l for l in live_items if l.get("id") not in seen_ids]
         fallback = False
     elif curated:
         items = curated

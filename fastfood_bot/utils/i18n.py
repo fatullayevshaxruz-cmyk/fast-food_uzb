@@ -118,6 +118,11 @@ TRANSLATIONS = {
         "ru": "🛠 Управление меню",
         "en": "🛠 Menu Management",
     },
+    "btn_stories_admin": {
+        "uz": "📸 Stories & Reels",
+        "ru": "📸 Stories & Reels",
+        "en": "📸 Stories & Reels",
+    },
 
     # ── Buyurtma oqimi ─────────────────────────────────────────────
     "choose_delivery_type": {

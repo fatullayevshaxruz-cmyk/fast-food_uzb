@@ -9,7 +9,7 @@ from keyboards.main_menu import get_user_main_menu, get_admin_main_menu, get_lan
 from security.sanitization import validate_uzbek_phone
 from utils.states import LanguageStates, RegistrationStates
 from utils.i18n import get_text
-from config import ADMIN_ID, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
+from config import ADMIN_ID, BOT_TOKEN, WORKING_HOURS_START, WORKING_HOURS_END, DELIVERY_FEE, MIN_ORDER_AMOUNT
 
 
 # Til tugmalariga mos kalit
@@ -81,7 +81,7 @@ async def _send_welcome_menu(message: types.Message, user: types.User, lang: str
     """Tanlangan til bo'yicha asosiy menyu va xush kelibsiz xabarini yuboradi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-    webapp_url = f"{MENU_WEBAPP_URL}?v=22&lang={lang}&user_id={user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=23&lang={lang}&user_id={user.id}"
     web_btn_labels = {
         "uz": "🌐 Menu ilova",
         "ru": "🌐 Меню приложение",
@@ -150,6 +150,27 @@ async def process_language_choice(message: types.Message, state: FSMContext):
     if current_state is not None:
         await state.finish()
 
+    # Shaxsiy chat menyu tugmasini ham tanlangan til (?lang=...) bilan yangilab qo'yamiz
+    try:
+        import aiohttp
+        if MENU_WEBAPP_URL.startswith("https://"):
+            btn_txt = {"uz": "Menyu", "ru": "Меню", "en": "Menu"}.get(lang, "Меню")
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+                await session.post(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/setChatMenuButton",
+                    json={
+                        "chat_id": user.id,
+                        "menu_button": {
+                            "type": "web_app",
+                            "text": btn_txt,
+                            "web_app": {"url": f"{MENU_WEBAPP_URL}?v=23&lang={lang}&user_id={user.id}"},
+                        },
+                    },
+                    timeout=aiohttp.ClientTimeout(total=4),
+                )
+    except Exception:
+        pass
+
     from aiogram.types import ReplyKeyboardRemove
     await message.answer(get_text("language_selected", lang), reply_markup=ReplyKeyboardRemove())
     await _send_welcome_menu(message, user, lang)
@@ -213,7 +234,7 @@ async def cmd_webapp(message: types.Message, state: FSMContext):
     except Exception:
         lang = "uz"
 
-    webapp_url = f"{MENU_WEBAPP_URL}?v=22&lang={lang}&user_id={message.from_user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=23&lang={lang}&user_id={message.from_user.id}"
 
     # Inline klaviatura orqali WebApp tugmasi yuborish
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton

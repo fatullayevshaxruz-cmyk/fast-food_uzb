@@ -194,8 +194,11 @@
         promo_btn: "Buyurtma berish",
         modal_add_btn: "🛒 Buyurtmaga kiritish",
         stories_title: "📸 Stories & Reels",
-        instagram_pill: "INSTAGRAMINGIZ",
+        instagram_pill: "instagramingiz",
         filter_all: "Barchasi",
+        filter_stories: "Stories",
+        filter_reels: "Reels",
+        promo_tag: "Aksiya",
         cart_title: "🛒 Savatcha",
         clear_btn: "Tozalash",
         cart_empty: "Savatcha bo'sh",
@@ -275,8 +278,11 @@
         promo_btn: "Заказать",
         modal_add_btn: "🛒 Добавить к заказу",
         stories_title: "📸 Stories & Reels",
-        instagram_pill: "ВАШ INSTAGRAM",
+        instagram_pill: "ваш instagram",
         filter_all: "Все",
+        filter_stories: "Истории",
+        filter_reels: "Reels",
+        promo_tag: "Акция",
         cart_title: "🛒 Корзина",
         clear_btn: "Очистить",
         cart_empty: "Корзина пуста",
@@ -356,8 +362,11 @@
         promo_btn: "Order Now",
         modal_add_btn: "🛒 Add to Order",
         stories_title: "📸 Stories & Reels",
-        instagram_pill: "YOUR INSTAGRAM",
+        instagram_pill: "your instagram",
         filter_all: "All",
+        filter_stories: "Stories",
+        filter_reels: "Reels",
+        promo_tag: "Promo",
         cart_title: "🛒 Cart",
         clear_btn: "Clear",
         cart_empty: "Your cart is empty",
@@ -398,6 +407,12 @@
       },
     };
     const tr = (lang, key) => (I18N[lang] && I18N[lang][key]) || I18N.uz[key] || key;
+    const pickLang = (obj, field, lang) => {
+      if (!obj) return '';
+      if (lang === 'ru') return obj[`${field}_ru`] || obj[field] || '';
+      if (lang === 'en') return obj[`${field}_en`] || obj[field] || '';
+      return obj[`${field}_uz`] || obj[field] || obj[`${field}_ru`] || '';
+    };
 
     // Fallback menu if server is loading or empty
     const FALLBACK_CATEGORIES = [
@@ -741,7 +756,12 @@
             className="relative flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
-            {banners.map((b, i) => (
+            {banners.map((b, i) => {
+              const bBadge = pickLang(b, 'badge', lang) || b.tag;
+              const bTitle = pickLang(b, 'title', lang);
+              const bSub = pickLang(b, 'subtitle', lang);
+              const bBtn = (pickLang(b, 'button_text', lang) || tr(lang, 'promo_btn')).replace(/\s*→$/, '');
+              return (
               <div
                 key={b.id ?? i}
                 role="button"
@@ -753,7 +773,7 @@
               >
                 <img
                   src={resolveMediaUrl(b.image) || FALLBACK_FOOD_IMAGE}
-                  alt={b.title || ''}
+                  alt={bTitle || ''}
                   onError={handleImageError}
                   className="absolute inset-0 w-full h-full object-cover"
                   loading={i === 0 ? 'eager' : 'lazy'}
@@ -761,21 +781,21 @@
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/15" />
 
-                {(b.badge || b.tag) && (
+                {bBadge && (
                   <div className="absolute top-3 left-3.5 inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#E50914] text-white text-[10px] font-extrabold tracking-wide shadow-sm">
-                    {b.badge || b.tag}
+                    {bBadge}
                   </div>
                 )}
 
                 <div className="absolute left-3.5 right-3.5 bottom-3 text-white">
-                  {b.title && (
+                  {bTitle && (
                     <div className="text-[16px] font-extrabold leading-tight drop-shadow line-clamp-1">
-                      {b.title}
+                      {bTitle}
                     </div>
                   )}
-                  {b.subtitle && (
+                  {bSub && (
                     <div className="text-[11px] font-medium text-white/85 mt-0.5 line-clamp-1">
-                      {b.subtitle}
+                      {bSub}
                     </div>
                   )}
                   <button
@@ -786,11 +806,12 @@
                     }}
                     className="mt-2 inline-flex items-center gap-1 text-[10px] font-extrabold text-[#E50914] bg-white px-2.5 py-1 rounded-full shadow-sm active:scale-95 transition-transform hover:bg-neutral-50 cursor-pointer"
                   >
-                    <span>{(lang === 'uz' ? (b.button_text || tr(lang, 'promo_btn')) : tr(lang, 'promo_btn')).replace(/\s*→$/, '')} →</span>
+                    <span>{bBtn} →</span>
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
             <div className="shrink-0 w-1" aria-hidden="true" />
           </div>
 
@@ -823,8 +844,9 @@
 
       if (!banner) return null;
       const product = banner.product || {};
-      const title = product.name || banner.title || 'Aksiya taklifi';
-      const description = product.description || banner.subtitle || '';
+      const title = pickLang(product, 'name', lang) || pickLang(banner, 'title', lang) || tr(lang, 'promo_tag');
+      const description = pickLang(product, 'description', lang) || pickLang(banner, 'subtitle', lang) || '';
+      const badgeLabel = pickLang(banner, 'badge', lang) || banner.tag;
       const price = Number(product.price || banner.price || 45000);
       const oldPrice = Number(product.old_price || banner.old_price || 0);
       const imageSrc = resolveMediaUrl(product.image_url || banner.image) || FALLBACK_FOOD_IMAGE;
@@ -847,9 +869,9 @@
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/25" />
               <div className="w-10 h-1 rounded-full bg-white/70 absolute top-2.5 left-1/2 -translate-x-1/2 sm:hidden" />
-              {(banner.badge || banner.tag) && (
+              {badgeLabel && (
                 <span className="absolute top-3.5 left-4 px-3 py-1 rounded-full bg-[#E50914] text-white text-[11px] font-extrabold shadow-md">
-                  {banner.badge || banner.tag}
+                  {badgeLabel}
                 </span>
               )}
               <button
@@ -948,7 +970,7 @@
                 }}
                 className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#833AB4] via-[#E50914] to-[#F77737] text-white text-[11px] font-extrabold tracking-wide shadow-sm active:scale-95 transition-transform"
               >
-                <span>instagramingiz</span>
+                <span>{tr(lang, 'instagram_pill')}</span>
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
@@ -958,8 +980,8 @@
               <div className="flex items-center gap-1 bg-neutral-200/70 p-0.5 rounded-full shrink-0 mt-0.5">
                 {[
                   { id: 'all', label: tr(lang, 'filter_all') },
-                  { id: 'story', label: 'Stories' },
-                  { id: 'reel', label: 'Reels' },
+                  { id: 'story', label: tr(lang, 'filter_stories') },
+                  { id: 'reel', label: tr(lang, 'filter_reels') },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1009,9 +1031,9 @@
                     <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/25" />
                     {/* Ichki yarim-shaffof oq ramka (4px ichkarida) */}
                     <div className="absolute inset-1 rounded-[14px] border border-white/55 pointer-events-none" />
-                    {s.badge && (
+                    {pickLang(s, 'badge', lang) && (
                       <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full bg-black/50 backdrop-blur-sm text-[9px] font-extrabold text-white border border-white/20">
-                        {s.badge}
+                        {pickLang(s, 'badge', lang)}
                       </span>
                     )}
                     {isReel && (
@@ -1020,7 +1042,7 @@
                       </div>
                     )}
                     <div className="absolute left-2.5 right-2.5 bottom-2.5 text-[10.5px] font-bold text-white leading-tight line-clamp-2 text-left drop-shadow">
-                      {s.caption || (isReel ? 'Reels' : s.kind === 'story' ? 'Story' : 'Aksiya')}
+                      {pickLang(s, 'caption', lang) || (isReel ? 'Reels' : s.kind === 'story' ? 'Story' : tr(lang, 'promo_tag'))}
                     </div>
                   </button>
                 </div>
@@ -1034,7 +1056,7 @@
     // ─── 2.7 FULL-SCREEN STORY VIEWER (Instagram uslubi) ───────────────
     const STORY_IMAGE_MS = 5000;
 
-    function StoryViewer({ stories, startIndex, onClose, onViewed, onSelectCategory }) {
+    function StoryViewer({ stories, startIndex, onClose, onViewed, onSelectCategory, lang = 'uz' }) {
       const [idx, setIdx] = useState(startIndex);
       const [progress, setProgress] = useState(0);
       const [paused, setPaused] = useState(false);
@@ -1147,12 +1169,19 @@
 
       if (!item) return null;
       const mediaUrl = resolveMediaUrl(item.url);
+      const itemCaption = pickLang(item, 'caption', lang);
+      const itemSubtitle = pickLang(item, 'subtitle', lang);
+      const itemCta = pickLang(item, 'cta_label', lang) || (
+        lang === 'ru' ? '🍽 Открыть в меню' : lang === 'en' ? '🍽 View in Menu' : "🍽 Menyuda ko'rish"
+      );
       const timeAgo = (() => {
         if (!item.taken_at) return '';
         const mins = Math.max(1, Math.round((Date.now() / 1000 - item.taken_at) / 60));
-        if (mins < 60) return `${mins} daq`;
+        if (mins < 60) return `${mins} ${lang === 'ru' ? 'мин' : lang === 'en' ? 'min' : 'daq'}`;
         const h = Math.round(mins / 60);
-        return h < 24 ? `${h} soat` : `${Math.round(h / 24)} kun`;
+        return h < 24
+          ? `${h} ${lang === 'ru' ? 'ч' : lang === 'en' ? 'h' : 'soat'}`
+          : `${Math.round(h / 24)} ${lang === 'ru' ? 'д' : lang === 'en' ? 'd' : 'kun'}`;
       })();
 
       return (
@@ -1184,8 +1213,8 @@
                 className="w-full h-full flex flex-col items-center justify-center px-8 text-center text-white"
                 style={{ background: item.color || 'linear-gradient(160deg,#E50914 0%,#7F1D1D 100%)' }}
               >
-                <div className="text-3xl font-extrabold leading-tight">{item.caption}</div>
-                {item.subtitle && <div className="mt-3 text-base font-medium opacity-90">{item.subtitle}</div>}
+                <div className="text-3xl font-extrabold leading-tight">{itemCaption}</div>
+                {itemSubtitle && <div className="mt-3 text-base font-medium opacity-90">{itemSubtitle}</div>}
               </div>
             )}
           </div>
@@ -1220,7 +1249,11 @@
               <div className="flex-1 min-w-0 text-white">
                 <div className="text-[13px] font-bold leading-tight">kafe_fastfood</div>
                 <div className="text-[11px] opacity-75 leading-tight">
-                  {item.kind === 'reel' ? 'Reels' : item.kind === 'story' ? 'Story' : 'Aksiya'}
+                  {item.kind === 'reel'
+                    ? 'Reels'
+                    : item.kind === 'story'
+                    ? (lang === 'ru' ? 'История' : 'Story')
+                    : tr(lang, 'promo_tag')}
                   {timeAgo ? ` · ${timeAgo}` : ''}
                 </div>
               </div>
@@ -1252,16 +1285,16 @@
           </div>
 
           {/* Pastki qism: caption + menyu bo'limi CTA + Instagram havolasi */}
-          {(item.category_id || item.permalink || (item.caption && mediaUrl)) && (
+          {(item.category_id || item.permalink || (itemCaption && mediaUrl)) && (
             <div
               className={`absolute bottom-0 left-0 right-0 px-4 pt-12 bg-gradient-to-t from-black/85 via-black/45 to-transparent transition-opacity ${paused ? 'opacity-0' : 'opacity-100'}`}
               style={{ paddingBottom: 'max(18px, env(safe-area-inset-bottom))' }}
             >
-              {item.caption && mediaUrl && (
+              {itemCaption && mediaUrl && (
                 <div className="mb-3">
-                  <p className="text-white text-sm font-bold leading-snug drop-shadow">{item.caption}</p>
-                  {item.subtitle && (
-                    <p className="text-white/80 text-xs mt-0.5 line-clamp-2">{item.subtitle}</p>
+                  <p className="text-white text-sm font-bold leading-snug drop-shadow">{itemCaption}</p>
+                  {itemSubtitle && (
+                    <p className="text-white/80 text-xs mt-0.5 line-clamp-2">{itemSubtitle}</p>
                   )}
                 </div>
               )}
@@ -1278,7 +1311,7 @@
                     className="relative z-10 w-full py-3.5 rounded-2xl text-white text-sm font-extrabold shadow-lg active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
                     style={{ background: item.theme_color || '#E50914' }}
                   >
-                    <span>{item.cta_label || "🍽 Menyuda ko'rish"}</span>
+                    <span>{itemCta}</span>
                     <span>→</span>
                   </button>
                 )}
@@ -1293,7 +1326,9 @@
                     }}
                     className="relative z-10 w-full py-3 rounded-2xl bg-white/15 backdrop-blur border border-white/25 text-white text-sm font-bold active:scale-[0.98] transition-transform"
                   >
-                    {item.kind === 'promo' ? 'Batafsil' : "📸 Instagram'da ochish"}
+                    {item.kind === 'promo'
+                      ? (lang === 'ru' ? 'Подробнее' : lang === 'en' ? 'Details' : 'Batafsil')
+                      : (lang === 'ru' ? '📸 Открыть в Instagram' : lang === 'en' ? '📸 Open in Instagram' : "📸 Instagram'da ochish")}
                   </button>
                 )}
               </div>
@@ -2254,11 +2289,15 @@
         if (!banner) return;
         const prod = banner.product || {
           id: 900 + Number(banner.id || 1),
-          name: banner.title || 'Aksiya taklifi',
+          name: banner.title || tr(lang, 'promo_tag'),
+          name_ru: banner.title_ru || banner.title || '',
+          name_en: banner.title_en || banner.title || '',
           price: Number(banner.price) || 45000,
           old_price: banner.old_price || null,
           image_url: resolveMediaUrl(banner.image || '') || FALLBACK_FOOD_IMAGE,
           description: banner.subtitle || '',
+          description_ru: banner.subtitle_ru || banner.subtitle || '',
+          description_en: banner.subtitle_en || banner.subtitle || '',
         };
         addToCart(prod, qty, false);
         try {
@@ -4046,6 +4085,7 @@
           {storyViewerData && storyViewerData.list?.length > 0 && (
             <StoryViewer
               stories={storyViewerData.list}
+              lang={lang}
               startIndex={Math.min(storyViewerData.index || 0, storyViewerData.list.length - 1)}
               onClose={closeStoryViewer}
               onViewed={markStoryViewed}

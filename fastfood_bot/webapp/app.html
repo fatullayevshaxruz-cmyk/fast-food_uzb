@@ -1245,16 +1245,30 @@
               ))}
             </div>
             <div className="mt-3 flex items-center gap-2.5">
-              <img src={`${API_BASE}/webapp/logo.jpg`} alt="" onError={handleImageError} className="w-8 h-8 rounded-full object-cover ring-2 ring-white/70" />
+              {item.kind === 'review' ? (
+                <div className="w-8 h-8 rounded-full bg-[#E50914] text-white text-xs font-extrabold flex items-center justify-center ring-2 ring-white/70 shrink-0">
+                  {item.initials || '★'}
+                </div>
+              ) : (
+                <img src={`${API_BASE}/webapp/logo.jpg`} alt="" onError={handleImageError} className="w-8 h-8 rounded-full object-cover ring-2 ring-white/70 shrink-0" />
+              )}
               <div className="flex-1 min-w-0 text-white">
-                <div className="text-[13px] font-bold leading-tight">kafe_fastfood</div>
-                <div className="text-[11px] opacity-75 leading-tight">
-                  {item.kind === 'reel'
-                    ? 'Reels'
-                    : item.kind === 'story'
-                    ? (lang === 'ru' ? 'История' : 'Story')
-                    : tr(lang, 'promo_tag')}
-                  {timeAgo ? ` · ${timeAgo}` : ''}
+                <div className="text-[13px] font-bold leading-tight truncate">
+                  {item.kind === 'review' ? (item.author_name || 'Fast-Food') : 'kafe_fastfood'}
+                </div>
+                <div className="text-[11px] opacity-80 leading-tight truncate">
+                  {item.kind === 'review'
+                    ? `★ ${item.rating || '5.0'} · ${tr(lang, 'reviews_badge')}`
+                    : (
+                      <>
+                        {item.kind === 'reel'
+                          ? 'Reels'
+                          : item.kind === 'story'
+                          ? (lang === 'ru' ? 'История' : 'Story')
+                          : tr(lang, 'promo_tag')}
+                        {timeAgo ? ` · ${timeAgo}` : ''}
+                      </>
+                    )}
                 </div>
               </div>
               {item.type === 'video' && (
@@ -1291,12 +1305,32 @@
               style={{ paddingBottom: 'max(18px, env(safe-area-inset-bottom))' }}
             >
               {itemCaption && mediaUrl && (
-                <div className="mb-3">
-                  <p className="text-white text-sm font-bold leading-snug drop-shadow">{itemCaption}</p>
-                  {itemSubtitle && (
-                    <p className="text-white/80 text-xs mt-0.5 line-clamp-2">{itemSubtitle}</p>
-                  )}
-                </div>
+                item.kind === 'review' ? (
+                  <div className="mb-3.5 p-4 rounded-2xl bg-black/55 backdrop-blur-md border border-white/15 space-y-2 shadow-xl">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm tracking-tight text-amber-400">⭐⭐⭐⭐⭐</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-extrabold">
+                        ★ {item.rating || '5.0'}
+                      </span>
+                    </div>
+                    <p className="text-white text-[15px] font-bold italic leading-relaxed drop-shadow">
+                      {itemCaption}
+                    </p>
+                    <div className="flex items-center justify-between pt-1 border-t border-white/15 text-xs">
+                      <span className="font-extrabold text-white">{item.author_name}</span>
+                      {itemSubtitle && (
+                        <span className="font-bold text-amber-400 truncate ml-2">{itemSubtitle}</span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-3">
+                    <p className="text-white text-sm font-bold leading-snug drop-shadow">{itemCaption}</p>
+                    {itemSubtitle && (
+                      <p className="text-white/80 text-xs mt-0.5 line-clamp-2">{itemSubtitle}</p>
+                    )}
+                  </div>
+                )
               )}
               <div className="space-y-2">
                 {item.category_id && onSelectCategory && (
@@ -1339,13 +1373,14 @@
     }
 
     // ─── 2.8 CUSTOMER REVIEWS ("Mijozlarimiz Izohlari") ───────────────
-    function CustomerReviewsSection({ lang = 'uz' }) {
+    function CustomerReviewsSection({ lang = 'uz', onOpen }) {
       const reviews = [
         {
           id: 1,
           initials: 'JR',
           rating: '5.0',
           name: 'Jasur Rahmonov',
+          category_id: 1,
           dish: {
             uz: 'Double Crimson Burger',
             ru: 'Double Crimson Burger',
@@ -1363,6 +1398,7 @@
           initials: 'ShK',
           rating: '5.0',
           name: 'Shahnoza Karimova',
+          category_id: 5,
           dish: {
             uz: 'Kafe Kombo (Burger + Fri)',
             ru: 'Кафе Комбо (Бургер + Фри)',
@@ -1380,6 +1416,7 @@
           initials: 'AT',
           rating: '5.0',
           name: "Alisher To'xtayev",
+          category_id: 2,
           dish: {
             uz: 'Tandir Lavash & Doner',
             ru: 'Тандыр Лаваш & Донер',
@@ -1397,6 +1434,7 @@
           initials: 'MD',
           rating: '5.0',
           name: 'Malika Davronova',
+          category_id: 1,
           dish: {
             uz: 'Kafeyimiz Chizburgeri',
             ru: 'Фирменный Чизбургер кафе',
@@ -1410,6 +1448,28 @@
           image: '/webapp/media/showcase/banner_snacks.jpg',
         },
       ];
+
+      const reviewStories = useMemo(() => reviews.map((rev) => ({
+        id: `review_${rev.id}`,
+        kind: 'review',
+        type: 'image',
+        url: rev.image,
+        thumbnail: rev.image,
+        initials: rev.initials,
+        rating: rev.rating,
+        author_name: rev.name,
+        caption: rev.quote.uz,
+        caption_ru: rev.quote.ru,
+        caption_en: rev.quote.en,
+        subtitle: rev.dish.uz,
+        subtitle_ru: rev.dish.ru,
+        subtitle_en: rev.dish.en,
+        category_id: rev.category_id,
+        theme_color: '#E50914',
+        cta_label: `🍔 ${rev.dish.uz} — Menyuda ko'rish`,
+        cta_label_ru: `🍔 ${rev.dish.ru} — Открыть в меню`,
+        cta_label_en: `🍔 ${rev.dish.en} — View in Menu`,
+      })), []);
 
       return (
         <div className="pt-2 space-y-2.5">
@@ -1430,12 +1490,19 @@
           </div>
 
           <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 snap-x">
-            {reviews.map((rev) => (
+            {reviews.map((rev, idx) => (
               <div
                 key={rev.id}
                 className="shrink-0 p-[2px] rounded-[18px] bg-gradient-to-br from-[#F58529] via-[#E50914] to-[#833AB4] snap-start shadow-[0_6px_18px_rgba(0,0,0,0.09)]"
               >
-                <div className="relative w-[148px] h-[202px] rounded-[16px] overflow-hidden bg-neutral-950 p-2.5 flex flex-col justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticImpact('light');
+                    onOpen && onOpen(reviewStories, idx);
+                  }}
+                  className="relative w-[148px] h-[202px] rounded-[16px] overflow-hidden bg-neutral-950 p-2.5 flex flex-col justify-between text-left active:scale-95 transition-transform cursor-pointer"
+                >
                   <img
                     src={resolveMediaUrl(rev.image) || FALLBACK_FOOD_IMAGE}
                     alt={rev.name}
@@ -1446,7 +1513,7 @@
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/55" />
 
-                  <div className="relative flex items-center justify-between gap-1">
+                  <div className="relative flex items-center justify-between gap-1 w-full">
                     <span className="w-7 h-7 rounded-full bg-[#E50914] text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white/25">
                       {rev.initials}
                     </span>
@@ -1459,7 +1526,7 @@
                     {rev.quote[lang] || rev.quote.uz}
                   </p>
 
-                  <div className="relative">
+                  <div className="relative w-full">
                     <div className="text-[11.5px] font-extrabold text-white truncate">
                       {rev.name}
                     </div>
@@ -1467,7 +1534,7 @@
                       {rev.dish[lang] || rev.dish.uz}
                     </div>
                   </div>
-                </div>
+                </button>
               </div>
             ))}
           </div>
@@ -3227,7 +3294,10 @@
                 </div>
 
                 {/* C) Mijozlarimiz Izohlari (Eng pastki qism) */}
-                <CustomerReviewsSection lang={lang} />
+                <CustomerReviewsSection
+                  lang={lang}
+                  onOpen={(list, i) => setStoryViewerData({ list, index: i })}
+                />
               </div>
             )}
 

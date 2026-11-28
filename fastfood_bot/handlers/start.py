@@ -81,7 +81,7 @@ async def _send_welcome_menu(message: types.Message, user: types.User, lang: str
     """Tanlangan til bo'yicha asosiy menyu va xush kelibsiz xabarini yuboradi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-    webapp_url = f"{MENU_WEBAPP_URL}?v=23&lang={lang}&user_id={user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=24&lang={lang}&user_id={user.id}"
     web_btn_labels = {
         "uz": "🌐 Menu ilova",
         "ru": "🌐 Меню приложение",
@@ -163,7 +163,7 @@ async def process_language_choice(message: types.Message, state: FSMContext):
                         "menu_button": {
                             "type": "web_app",
                             "text": btn_txt,
-                            "web_app": {"url": f"{MENU_WEBAPP_URL}?v=23&lang={lang}&user_id={user.id}"},
+                            "web_app": {"url": f"{MENU_WEBAPP_URL}?v=24&lang={lang}&user_id={user.id}"},
                         },
                     },
                     timeout=aiohttp.ClientTimeout(total=4),
@@ -234,7 +234,7 @@ async def cmd_webapp(message: types.Message, state: FSMContext):
     except Exception:
         lang = "uz"
 
-    webapp_url = f"{MENU_WEBAPP_URL}?v=23&lang={lang}&user_id={message.from_user.id}"
+    webapp_url = f"{MENU_WEBAPP_URL}?v=24&lang={lang}&user_id={message.from_user.id}"
 
     # Inline klaviatura orqali WebApp tugmasi yuborish
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
